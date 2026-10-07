@@ -1,0 +1,157 @@
+# Orrery
+
+![Orrery observation workspace](docs/screenshots/earth-workspace.png)
+
+**Explore the solar system. Inspect an orbit. Build a simulation.**
+
+
+Orrery is a local-first 3D orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a two-stage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
+
+The interface uses a visual object navigator, a dedicated observation viewport, tabbed inspection and mission workspaces, local/system typography, and keyboard-accessible controls. The [workspace redesign](docs/workspace-redesign.md) documents this revision. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
+
+## Run on Windows
+
+Requires Node.js 20.19+ (tested with 22.14) and Python 3.11+ (tested with 3.13).
+
+```powershell
+npm.cmd ci
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+```
+
+Start the API in one terminal:
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+Start the frontend in another:
+
+```powershell
+npm.cmd run dev
+```
+
+Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optional for local physics, editing, presets, IndexedDB autosave, and JSON export; it is required for Horizons and shared scenarios.
+
+## Workspace
+
+- **Reality** initializes at the current UTC date. Planets use JPL Table 1 with century rates. Major moons use documented circular mean-orbit approximations with illustrative phases.
+- **Sandbox** snapshots the current position AND velocity and evolves gravitational dynamics. Body edits are applied at the next worker revision.
+- **Inspector** edits mass, radius, density, state vectors, bound orbital elements, spin, appearance, trails, constraints, collision overrides, and metadata. Per-field units and global preferences preserve SI internally.
+- **Create objects** place/throw objects in the ecliptic plane, spawn extreme objects, and brush rings, streams, fields or clouds. Inspector actions include circularize, duplicate, moon, binary companion, fragment, mass/radius scaling, velocity operations, barycenter centering, and parameterized supernova.
+- **Prediction** integrates a cloned state in a separate worker. Duration, resolution and mass preview are configurable. Dashed paths include planned burns. The displayed horizon is the horizon actually computed within the budget.
+- **Scenario library** includes 24 built-in examples, searchable categories/tags, saved/recent local snapshots, shared-ID loading, import/export, and backend sharing.
+- **Simulation settings** select integrator, solver, adaptive controls, collisions, GR approximation, units, visual quality, accessibility, cameras and capture.
+- **Events** combines collision/tidal/mission events with conservation diagnostics.
+
+## Rocket View and mission control
+
+Load **Launch vehicle** from Scenarios. Choose **Ignition / launch** to release the rotating-Earth pad constraint and start the engine. The worker integrates gravity, changing mass, propellant flow, thrust, exponential-atmosphere drag, feedback guidance, stage separation, insertion, and payload deployment.
+
+Throttle, target altitude, manual pitch/heading/roll, Isp, thrust, stage masses, drag area and coefficient are editable. Guidance and auto-staging are independently switchable. The default launch is covered by an automated end-to-end test that reaches a bound orbit before fuel exhaustion.
+
+Telemetry shows MET, phase, position, velocity, acceleration, vertical/horizontal speed, thrust, fuel, stage, orientation, dynamic pressure, and orbital elements. Charts contain actual recorded worker samples. Export CSV, JSON, or a Markdown mission report. The model is a point-mass demonstrator, not a flight-certified 6-DOF simulator.
+
+## Satellite View
+
+Load LEO, MEO, GEO, polar, Sun-synchronous-like, elliptical, highly elliptical, or the 24-satellite constellation. Satellite View adds altitude, latitude/longitude, inertial and ground-relative speeds, power, payload, orbital parameters, ground tracks, stations and communication links.
+
+Communication status comes from range and geometric line-of-sight checks. Power uses a simple eclipse/solar/load energy balance. Earth-fixed longitudes use an explicitly illustrative J2000 Greenwich origin. The SSO-like preset sets inclination only: J2 nodal precession is not modeled.
+
+Maneuver planning supports prograde, retrograde, radial, normal and arbitrary inertial-vector burns. Burns execute at their scheduled epoch and appear in prediction/event logs. They are ideal impulses; no finite engine duration or propellant debit is implied.
+
+## Physics choices
+
+Velocity Verlet remains the default. RK4 and embedded Dormand-Prince 5(4) are available. Adaptive acceleration caps use eta × min sqrt(softening/|a|). DP separately accepts/rejects trial steps using position/velocity absolute tolerances and a relative tolerance.
+
+Gravity is always direct between massive sources. Direct or Barnes-Hut evaluation is selectable for non-sourcing test particles. Auto selects the tree above 500 total bodies; theta defaults to 0.5.
+
+Collision modes are disabled, merge, restitution bounce, and impact-energy fragmentation. Resolved fragments retain mass and center-of-mass momentum. Fluid Roche disruption is optional. Event energy/angular-momentum jumps adjust diagnostic baselines instead of being reported as numerical drift.
+
+The optional dominant-primary 1PN correction reproduces Mercury's weak-field perihelion advance in the test suite. It is not a full relativistic N-body or geodesic solver. Black holes use Newtonian attraction, Schwarzschild capture, tidal fragmentation, and procedural accretion/lensing visuals. Wormholes are explicitly experimental transport rules with orientation transforms and cooldown.
+
+## Horizons
+
+Open **Horizons**, choose an epoch and optionally add Pluto, Ceres, Voyager 1/2 or JWST.
+
+- Initialization fetches heliocentric J2000-ecliptic SI vectors and switches to locally propagated Sandbox state.
+- One-day playback fetches 33 vectors per target and interpolates with cubic Hermite position/velocity interpolation.
+- Loading is atomic across requested bodies. Failed or unsupported upstream targets leave the current state intact.
+- Coverage endpoints clamp playback. There is no silent extrapolation.
+- Availability and accuracy depend on NASA's target coverage and interpolation spacing. Local propagation is not presented as continuing JPL ephemerides.
+
+## Rendering and performance
+
+Camera-relative positions are formed in Float64 before Three.js receives local coordinates. System, planetary, Earth-orbit, local-vehicle and true-radius views use different linear display units; no nonlinear scale is applied to the physics.
+
+Bundled CC BY 4.0 planet maps, day/night shading, clouds, atmospheric rims, solar emission, rings and procedural custom materials improve surface readability. A deterministic generated star distribution supplies background depth; it is not an astrometric star catalog.
+
+Particles/fragments use one instanced mesh; background stars use one point draw. Low/Medium/High/Ultra/Auto quality adjusts pixel ratio and bloom; low quality bounds trails and sphere detail. FPS, frame interval, physics batch time, worker throughput, counts, draw calls and trail points are exposed. GPU compute gravity is not enabled: the supported physics path is CPU direct/tree, with GPU-assisted instanced rendering.
+
+Limits: **20,000 bodies**, **512 massive sources**, **64 fragments per event**, **200 retained events**, **2,400 telemetry samples**, **32 MiB scenario payloads**. Dense source systems, many close encounters, portal rendering, prediction and recording reduce throughput. The clock slows to actual integrated time when the worker's 12 ms / 512-substep budget is reached. No unconditional 60 FPS claim is made.
+
+## Cameras and capture
+
+Orbit, follow, chase, rocket/satellite chase, free flight, flyby and cinematic modes are available. Save viewpoints and camera keyframes in settings. Cinematic keyframes interpolate over eight seconds per segment.
+
+PNG captures the viewport. WebM records the viewport at selectable output height and requested frame rate when MediaRecorder supports it. Browser encoding may drop frames. UI compositing, audio capture, GPU timestamp timing, and full GR ray tracing are unavailable and are not represented by fake controls.
+
+## Controls and accessibility
+
+Drag/touch to orbit; wheel/pinch to zoom; right-drag/two fingers to pan. Click a body or use the bottom object navigator to frame it. The System / Moons / Vehicles filters help navigate related objects. Use Overview for live measurements and Properties for editing.
+
+| Key | Action |
+| --- | --- |
+| Space | Play / pause |
+| F | Focus local view |
+| Ctrl/Cmd K | Command palette |
+| Ctrl/Cmd Z | Undo |
+| Ctrl/Cmd Shift Z | Redo |
+| W A S D, Q E | Free camera movement |
+| Shift | Faster free camera |
+| Escape | Close dialog / cancel placement |
+| ? | Help |
+
+The palette accepts actions and “jump to YYYY-MM-DD”. Dialogs trap focus and restore it. Inputs are labeled; warnings include text. Reduced motion, high contrast, and text scaling are supported. Small screens use a horizontal toolbar and scrollable bottom sheet. The six-step onboarding tour is dismissible.
+
+## Persistence and security
+
+IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary.
+
+Shared scenarios use unguessable read IDs and separate edit-key capabilities. The URL permits reading; updating, deleting, metadata editing and camera writes require X-Edit-Key. No user authentication is introduced. The in-memory rate limiter is suitable for one API process; deploy an edge/shared limiter before scaling to multiple processes.
+
+## Production deployment
+
+```powershell
+npm.cmd run build
+npm.cmd run preview
+```
+
+Serve dist/ with SPA fallback (including /s/*), proxy /api to FastAPI, and use HTTPS. Serve local assets with compatible same-origin resource policies. Add:
+
+```text
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+These headers and a secure context enable SharedArrayBuffer. The transferable ArrayBuffer fallback remains operational without them; append ?fallback to exercise it explicitly. The worker retains exactly-one-RPC ownership and stale-revision rejection in either transport.
+
+Configure ORRERY_DB for the SQLite path and ORRERY_ORIGINS for comma-separated allowed origins. Keep SQLite and edit keys out of public static directories. API OpenAPI docs are at /docs.
+
+## Verification
+
+```powershell
+npm.cmd test -- --reporter=verbose --silent=false
+.\.venv\Scripts\python.exe -m pytest backend/tests -q
+npm.cmd run build
+```
+
+See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist.
+
+Detailed references: [physics](docs/physics.md), [architecture](docs/architecture.md), [rendering](docs/rendering.md), [missions](docs/missions.md), [API](docs/api.md), [scenario schema](docs/scenario-schema.md).
+
+Texture authorship and license: [Solar System Scope / INOVE](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [local attribution](public/textures/ATTRIBUTION.md). The maps are static artwork based on scientific imagery, with adjusted colors and some reconstructed regions.
+
+## Development status
+
+Orrery is an actively developed simulation workspace, not a flight-certified or fully relativistic simulator. Automated physics checks do not establish visual quality or certify the complete original roadmap. See VERIFICATION.md for tested behavior and unresolved limits. GitHub Actions runs frontend tests/build and backend tests on pushes and pull requests.

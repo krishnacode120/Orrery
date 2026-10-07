@@ -1,0 +1,218 @@
+[
+  {
+    "id": "solar-now",
+    "name": "Solar system · now",
+    "category": "astronomy",
+    "description": "Approximate planets and mean circular moon paths",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "empty",
+    "name": "Empty workspace",
+    "category": "sandbox",
+    "description": "Build a system from first principles",
+    "tags": [
+      "sandbox"
+    ]
+  },
+  {
+    "id": "binary",
+    "name": "Binary stars",
+    "category": "dynamics",
+    "description": "Two equal stars with barycentric velocities",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "jupiter-star",
+    "name": "Jupiter ignition",
+    "category": "dynamics",
+    "description": "Jupiter at 0.1 solar mass",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "flyby",
+    "name": "Stellar encounter",
+    "category": "dynamics",
+    "description": "A passing solar-mass perturber",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "ten-moons",
+    "name": "Ten moons",
+    "category": "dynamics",
+    "description": "Earth with a ring of circular moons",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "rings",
+    "name": "Tidal ring formation",
+    "category": "dynamics",
+    "description": "A satellite inside a giant planet’s Roche boundary",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "collision",
+    "name": "Giant impact",
+    "category": "dynamics",
+    "description": "Collision and resolved fragmentation",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "figure-eight",
+    "name": "Figure-eight",
+    "category": "dynamics",
+    "description": "Equal-mass periodic three-body initial state",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "black-hole",
+    "name": "Dark Sun",
+    "category": "extreme",
+    "description": "Solar mass black hole replaces the Sun",
+    "tags": [
+      "extreme"
+    ]
+  },
+  {
+    "id": "galactic",
+    "name": "Galactic center",
+    "category": "extreme",
+    "description": "4.3 million solar masses; Newtonian stellar orbit",
+    "tags": [
+      "extreme"
+    ]
+  },
+  {
+    "id": "wormhole",
+    "name": "Wormhole laboratory",
+    "category": "extreme",
+    "description": "Linked experimental transport mouths",
+    "tags": [
+      "extreme"
+    ]
+  },
+  {
+    "id": "pulsar",
+    "name": "Pulsar system",
+    "category": "extreme",
+    "description": "Rotating neutron star with an orbiting tracer",
+    "tags": [
+      "extreme"
+    ]
+  },
+  {
+    "id": "asteroids",
+    "name": "Asteroid field · 5000",
+    "category": "particles",
+    "description": "Massless tracers; octree gravity",
+    "tags": [
+      "particles"
+    ]
+  },
+  {
+    "id": "comet",
+    "name": "Comet encounter",
+    "category": "astronomy",
+    "description": "Illustrative eccentric comet orbit",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "rocket",
+    "name": "Launch vehicle",
+    "category": "mission",
+    "description": "Two-stage point-mass launch from rotating Earth",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "leo",
+    "name": "Low Earth orbit",
+    "category": "satellite",
+    "description": "400 km / 51.6°",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "meo",
+    "name": "Medium Earth orbit",
+    "category": "satellite",
+    "description": "20200 km / 55°",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "geo",
+    "name": "Geosynchronous orbit",
+    "category": "satellite",
+    "description": "Sidereal circular equatorial orbit",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "polar",
+    "name": "Polar orbit",
+    "category": "satellite",
+    "description": "600 km / 90°",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "sso",
+    "name": "Sun-synchronous-like",
+    "category": "satellite",
+    "description": "700 km / 98°; J2 nodal precession not modeled",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "elliptical",
+    "name": "Elliptical Earth orbit",
+    "category": "satellite",
+    "description": "Eccentricity 0.35",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "molniya",
+    "name": "Highly elliptical orbit",
+    "category": "satellite",
+    "description": "Approximate 12-hour / 63.4° orbit",
+    "tags": [
+      "satellite"
+    ]
+  },
+  {
+    "id": "constellation",
+    "name": "Constellation",
+    "category": "satellite",
+    "description": "24 vehicles in six orbital planes",
+    "tags": [
+      "satellite"
+    ]
+  }
+]

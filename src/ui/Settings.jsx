@@ -1,0 +1,37 @@
+import {useState} from 'react';
+import {useSimStore} from '../store/useSimStore.js';
+import {NumberField,Select,Toggle,Readouts,fmt} from './Fields.jsx';
+import {captureScreenshot,startRecording,stopRecording,saveViewpoint,restoreViewpoint} from '../capture.js';
+export default function Settings({run}) {
+ const sim=useSimStore(),s=sim.scenario,p=s.settings,v=s.view;
+ const [tab,setTab]=useState('physics');
+ const [recording,setRecording]=useState(false),[fps,setFPS]=useState('30'),[resolution,setResolution]=useState('1080');
+ const edit=(k,x)=>run(()=>sim.edit(s=>s.settings[k]=x)),view=(k,x)=>sim.configureView({[k]:x});
+ return <><h2>Workspace settings</h2><div className="panel-tabs" role="tablist" aria-label="Settings sections">{[["physics","Physics"],["display","Display"],["camera","Camera"],["performance","System"]].map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} className={tab===key?"active":""} onClick={()=>setTab(key)}>{label}</button>)}</div>
+ {tab==="physics"&&<div className="settings-group"><Select label="Integrator" value={p.integrator} options={[['verlet','Velocity Verlet'],['rk4','Runge-Kutta 4'],['dopri','Dormand-Prince 5(4)']]} commit={x=>edit('integrator',x)}/>
+ <Toggle label="Acceleration-limited adaptive timestep" value={p.adaptive} commit={x=>edit('adaptive',x)} title="dt = eta times min sqrt(softening / acceleration). State-selected timesteps are not automatically reversible."/>
+ <div className="grid">{[['stepSeconds','Maximum step','s'],['minStep','Minimum step','s'],['eta','Acceleration safety eta',''],['rtol','Relative tolerance',''],['positionTolerance','Position tolerance','m'],['velocityTolerance','Velocity tolerance','m/s'],['gMultiplier','G multiplier',''],['softening','Softening','m']].map(([k,label,unit])=><NumberField key={k} label={label} value={p[k]} unit={unit} commit={x=>edit(k,x)}/>)}</div>
+ <Select label="Gravity solver" value={p.solver} options={[['auto','Auto · tree above 500 bodies'],['direct','Direct summation'],['tree','Barnes-Hut for test particles']]} commit={x=>edit('solver',x)}/>
+ <NumberField label="Opening angle theta" value={p.theta} commit={x=>edit('theta',x)}/><small>Massive sources always interact directly. Massless particles never source gravity.</small>
+ <details open><summary>Collisions and disruption</summary><div className="stack"><Select label="Collision mode" value={p.collisionMode} options={[['none','Disabled'],'merge','bounce','fragment']} commit={x=>edit('collisionMode',x)}/>
+ <div className="grid">{[['restitution','Restitution'],['fragmentCount','Fragment count'],['fragmentSpread','Ejection spread'],['fragmentMinMass','Minimum fragment mass · kg'],['tidalMultiplier','Roche multiplier']].map(([k,label])=><NumberField key={k} label={label} value={p[k]} commit={x=>edit(k,x)}/>)}</div>
+ <Select label="Fragment masses" value={p.fragmentDistribution} options={['equal','varied']} commit={x=>edit('fragmentDistribution',x)}/><Toggle label="Fluid Roche tidal disruption" value={p.roche} commit={x=>edit('roche',x)}/></div></details>
+ <Toggle label="Dominant-primary 1PN GR approximation" value={p.gr} commit={x=>edit('gr',x)}/><NumberField label="Speed of light" value={p.c} unit="m/s" commit={x=>edit('c',x)}/>
+ <small>1PN is restricted to weak fields and slow speeds. It is not a relativistic black-hole solver.</small>
+ </div>}
+ {tab==="display"&&<details open><summary>Rendering and accessibility</summary><div className="stack"><Select label="Quality" value={v.quality} options={['auto','low','medium','high','ultra']} commit={x=>view('quality',x)}/>
+ <NumberField label="System body size multiplier" value={v.exaggeration} commit={x=>view('exaggeration',Math.max(1,Math.min(1e6,x)))}/><NumberField label="Exposure" value={v.exposure} commit={x=>view('exposure',Math.max(.1,Math.min(4,x)))}/>
+ <div className="grid">{[['labels','Labels'],['orbits','Orbit paths'],['trails','History trails'],['markers','Orbital markers'],['vectors','Velocity vectors'],['plane','Orbital plane'],['bloom','Restrained bloom'],['highContrast','High contrast'],['reducedMotion','Reduced motion']].map(([k,label])=><Toggle key={k} label={label} value={v[k]} commit={x=>view(k,x)}/>)}</div>
+ <NumberField label="Text scale" value={v.textScale} commit={x=>view('textScale',Math.max(.9,Math.min(1.5,x)))}/>
+ <div className="grid">{[['mass',['kg','M⊕','M☉']],['length',['m','km','AU']],['radius',['m','km','R⊕','R☉']],['velocity',['m/s','km/s']],['time',['s','d','yr']],['angle',['deg','rad']]].map(([key,options])=><Select key={key} label={key+' units'} value={v.units[key]} options={options} commit={x=>view('units',{...v.units,[key]:x})}/>)}</div></div></details>}
+ {tab==="camera"&&<details open><summary>Camera and capture</summary><div className="stack"><Select label="Camera mode" value={v.cameraMode} options={['orbit','follow','chase','rocket chase','satellite chase','free','flyby','cinematic']} commit={x=>view('cameraMode',x)}/>
+ <div className="grid"><button onClick={()=>{saveViewpoint();const camera=useSimStore.getState().scenario.view.camera;if(camera)view('savedCameras',[...v.savedCameras,{...camera,name:'View '+(v.savedCameras.length+1)}].slice(-100));}}>Save viewpoint</button>
+ <button onClick={()=>{saveViewpoint();const camera=useSimStore.getState().scenario.view.camera;if(camera)view('keyframes',[...v.keyframes,camera].slice(-32));}}>Add keyframe</button></div>
+ <small>{v.keyframes.length} camera keyframes. Cinematic mode interpolates eight seconds per segment.</small>
+ {v.savedCameras.map((camera,i)=><button key={i} onClick={()=>{sim.configureView({scale:camera.scale,camera,cameraMode:'orbit'});restoreViewpoint(camera);}}>{camera.name}</button>)}
+ <button onClick={()=>run(captureScreenshot)}>Save viewport PNG</button>
+ <div className="grid"><Select label="Recording FPS" value={fps} options={['24','30','60']} commit={setFPS}/><Select label="Recording height" value={resolution} options={['720','1080','1440']} commit={setResolution}/></div>
+ <button onClick={()=>run(()=>{if(recording)stopRecording();else{startRecording({fps:+fps,resolution:+resolution,onStop:()=>setRecording(false)});setRecording(true);}})}>{recording?'Stop recording':'Record WebM'}</button>
+ <small>Viewport-only capture. UI composition is unavailable. Encoding depends on browser support; output resolution does not add source detail.</small></div></details>}
+ {tab==="performance"&&<details open><summary>Performance</summary><Readouts values={[['FPS',fmt(sim.fps,1)],['Frame time',fmt(sim.frameMs,1)+' ms'],['Physics batch',fmt(sim.stats?.computeMs,2)+' ms'],['Worker throughput',fmt(sim.stats?.stepsPerSecond,1)+' steps/s'],['Body count',s.bodies.length],['Active fragments',sim.stats?.activeFragments??0],['Memory transport',sim.transport],['Auto quality',sim.qualityLevel],['Active trail points',sim.activeTrailPoints??0],['Draw calls',sim.drawCalls??0],['Triangles',fmt(sim.triangles)],['Solver',sim.stats?.gravity??p.solver]]}/><small>Frame time includes the browser frame interval. GPU timing and heap memory are not exposed here.</small></details>}</>;
+}
