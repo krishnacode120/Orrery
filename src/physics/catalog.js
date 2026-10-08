@@ -1,5 +1,6 @@
+import {transferPlan,sphereOfInfluence} from './transfers.js';
 import { body, solarSystem, DEFAULT_SETTINGS } from './body.js';
-import { G, AU, DAY, EARTH_MASS, EARTH_RADIUS, EARTH_AXIS, SOLAR_MASS, OBLIQUITY, julianDate, add, scale, cross } from './units.js';
+import { G, AU, DAY, EARTH_MASS, EARTH_RADIUS, EARTH_AXIS, SOLAR_MASS, OBLIQUITY, julianDate, add, scale, cross, unit } from './units.js';
 import { stateFromElements } from './orbital.js';
 import { defaultRocket, rocketMass, EARTH_ROTATION } from './vehicles.js';
 import { schwarzschild } from './exotic.js';
@@ -14,6 +15,12 @@ export const MOONS=[
  ['callisto','Callisto','jupiter',1.0759e23,2410300,1882709000,16.689,'504'],
  ['titan','Titan','saturn',1.3452e23,2574730,1221870000,15.945,'606'],
  ['enceladus','Enceladus','saturn',1.0802e20,252100,237948000,1.370218,'602'],
+ ['rhea','Rhea','saturn',2.3065e21,763500,527200000,4.518,'605'],
+ ['iapetus','Iapetus','saturn',1.8056e21,734500,3560820000,79.3215,'608'],
+ ['dione','Dione','saturn',1.0955e21,561400,377700000,2.7369,'604'],
+ ['ariel','Ariel','uranus',1.2511e21,578900,190929000,2.5204,'701'],
+ ['umbriel','Umbriel','uranus',1.2750e21,584700,265986000,4.144,'702'],
+ ['miranda','Miranda','uranus',6.4426e19,235800,129846000,1.4135,'705'],
  ['titania','Titania','uranus',3.527e21,788900,435910000,8.706,'703'],
  ['oberon','Oberon','uranus',3.014e21,761400,583520000,13.463,'704'],
  ['triton','Triton','neptune',2.14e22,1353400,354759000,-5.87685,'801'],
@@ -56,9 +63,9 @@ export function spacecraftAt(primary,orbit={},index=0,jd=julianDate()) {
     trail:{length:800,color:'#dfb66c',mode:'history',width:1.2,duration:7200},
     spacecraft:{range:4e7,battery:1,capacityWh:1000,solarWatts:600,loadWatts:220,payload:'standby',orientation:[1,0,0],epochJD:jd}});
 }
-export const DEFAULT_VIEW={quality:'auto',exaggeration:1500,scale:'vehicle',cameraMode:'follow',labels:true,
+export const DEFAULT_VIEW={quality:'auto',exaggeration:1500,scale:'system',cameraMode:'orbit',labels:true,
   bloom:true,orbits:true,trails:true,vectors:false,markers:true,plane:false,links:false,showHill:false,showRoche:false,
-  selected:'earth',panel:'inspector',units:{mass:'kg',length:'km',radius:'km',velocity:'km/s',time:'d',angle:'deg'},
+  selected:'earth',panel:null,workspaceVersion:4,scaleMode:'visibility',realDistances:true,realRadii:false,distanceScale:1,planetScale:1500,moonScale:1500,spacecraftScale:10000,trailScale:1,labelScale:1,showMoons:true,showSOI:false,predictionPaths:true,transferPath:true,autoArrival:true,gravityGrid:'off',showAcceleration:false,showBarycenter:false,miniMap:false,miniMapMode:'system',pip:false,units:{mass:'kg',length:'km',radius:'km',velocity:'km/s',time:'d',angle:'deg'},
   textScale:1,highContrast:false,reducedMotion:false,camera:null,keyframes:[],savedCameras:[],exposure:1};
 export function baseScenario(name='Solar system') {
   const jd=julianDate();
@@ -68,6 +75,19 @@ export function baseScenario(name='Solar system') {
 }
 export const PRESETS=[
  ['solar-now','Solar system · now','astronomy','Approximate planets and mean circular moon paths'],
+ ['solar-real','Solar system · real scale','astronomy','Physical orbital distances and radii'],
+ ['earth-moon','Earth–Moon system','astronomy','Local Earth and Moon exploration'],
+ ['jupiter-system','Jupiter system','astronomy','Galilean moons and the giant planet'],
+ ['saturn-system','Saturn system','astronomy','Saturn, rings and major moons'],
+ ['mars-transfer','Earth → Mars','mission','Lambert-initialized cruise outside Earth SOI'],
+ ['venus-transfer','Earth → Venus','mission','Inner-planet cruise demonstration'],
+ ['jupiter-transfer','Jupiter flyby','mission','Outer-planet cruise demonstration'],
+ ['moon-transfer','Moon transfer','mission','Earth-centered Lambert transfer from parking orbit'],
+ ['jupiter-heavy','Jupiter ×1000','dynamics','Mass edit in the live solar system'],
+ ['solar-escape','Solar escape','mission','Explorer beyond solar escape speed'],
+ ['earth-mars-impact','Earth vs Mars','dynamics','Fragmenting impact experiment'],
+ ['asteroid-impact','Asteroid vs Earth','dynamics','High-speed asteroid impact'],
+ ['star-impact','Two stars collision','dynamics','Merging stellar encounter'],
  ['empty','Empty workspace','sandbox','Build a system from first principles'],
  ['binary','Binary stars','dynamics','Two equal stars with barycentric velocities'],
  ['jupiter-star','Jupiter ignition','dynamics','Jupiter at 0.1 solar mass'],
@@ -98,6 +118,25 @@ export function makePreset(id) {
   if(['binary','jupiter-star','flyby','asteroids','empty'].includes(id)){s.view.scale='system';s.view.cameraMode='orbit';}
   const solar=()=>{s.bodies=realityBodies(s.jd);s.provenance={source:'jpl',epochJD:s.jd,note:'JPL Table 1 planets; illustrative mean moon phases'};};
   if(id==='solar-now'){solar();s.mode='reality';}
+  else if(['solar-real','earth-moon','jupiter-system','saturn-system','jupiter-heavy','solar-escape'].includes(id)){
+   solar();s.view.scale='system';s.view.cameraMode='orbit';
+   if(id==='solar-real'){s.mode='reality';s.view.realRadii=true;s.view.scaleMode='scientific';}
+   if(['earth-moon','jupiter-system','saturn-system'].includes(id)){s.mode='reality';s.view.selected={'earth-moon':'earth','jupiter-system':'jupiter','saturn-system':'saturn'}[id];s.view.scale='planetary';}
+   if(id==='jupiter-heavy')s.bodies.find(b=>b.id==='jupiter').mass*=1000;
+   if(id==='solar-escape'){const b=spacecraftAt(s.bodies[0],{altitude:AU-s.bodies[0].radius,inclination:0},0,s.jd);b.velocity=b.velocity.map(x=>x*1.6);b.name='Escape explorer';s.bodies.push(b);s.view.selected=b.id;}
+  }
+  else if(['mars-transfer','venus-transfer','jupiter-transfer','moon-transfer'].includes(id)){
+   solar();const source=s.bodies.find(b=>b.id==='earth'),target={'mars-transfer':'mars','venus-transfer':'venus','jupiter-transfer':'jupiter','moon-transfer':'moon'}[id],days={'mars-transfer':259,'venus-transfer':146,'jupiter-transfer':998,'moon-transfer':4.5}[id];
+   const b=spacecraftAt(source,{altitude:200000,inclination:0},0,s.jd);b.id='transfer-explorer';b.name='Transfer explorer';b.type='spacecraft';b.spacecraft.range=1e14;
+   if(target!=='moon'){const initial=transferPlan(s,'earth',target,days),distance=sphereOfInfluence(source,s.bodies,s.settings)*1.05;b.position=add(source.position,scale(unit(initial.departureVector),distance));b.parentId='sun';}
+   s.bodies.push(b);const plan=transferPlan(s,b.id,target,days);b.velocity=plan.departureVelocity;s.mission={name:entry.name,epochJD:s.jd,targetId:target,transfer:plan};s.view={...s.view,selected:b.id,targetId:target,scale:target==='moon'?'planetary':'system',cameraMode:'orbit',transferPreview:plan,transferPath:true,showSOI:true,panel:'mission'};s.settings={...s.settings,stepSeconds:target==='moon'?30:1800,timeScale:target==='moon'?1000:DAY,adaptive:true,roche:false,collisionMode:'none',softening:10};
+  }
+  else if(['earth-mars-impact','asteroid-impact','star-impact'].includes(id)){
+   const source=solarSystem(s.jd),earth=earthBody(),other=structuredClone(source.find(b=>b.id===(id==='star-impact'?'sun':'mars')));earth.parentId=null;other.parentId=null;
+   if(id==='star-impact')Object.assign(earth,{type:'star',mass:SOLAR_MASS,radius:6.957e8,name:'Star A'});
+   if(id==='asteroid-impact')Object.assign(other,{type:'asteroid',mass:1e16,radius:10000,name:'Asteroid'});
+   other.id='impactor';other.position=[(earth.radius+other.radius)*4,0,0];other.velocity=[-20000,1000,0];s.bodies=[earth,other];s.settings={...s.settings,collisionMode:id==='star-impact'?'merge':'fragment',roche:false,stepSeconds:1,timeScale:100};s.view.selected='earth';s.view.scale='planetary';
+  }
   else if(id==='empty')s.view.selected=null;
   else if(['black-hole','jupiter-star','flyby','ten-moons','comet','wormhole'].includes(id)) {
     solar();

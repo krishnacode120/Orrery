@@ -17,6 +17,7 @@ export function usePrediction() {
  if(mass!==null){const b=snapshot.bodies.find(b=>b.id===selected);if(b)b.mass*=mass;ids=[...new Set([...ids,...snapshot.bodies.filter(b=>!b.massless).slice(0,10).map(b=>b.id)])];}
  if(placement){const space=viewSpace(snapshot),velocity=sub(placement[1],placement[0]).map(x=>x/(space.unit/10000));
  if(tool==='spawn'&&kind!=='wormhole'){const b=createBody(kind,placement[0],velocity);b.id='placement-preview';snapshot.bodies.push(b);ids=[b.id];}
+ else if(tool==='move'){const b=snapshot.bodies.find(b=>b.id===selected);if(b)b.position=[...placement[1]];}
  else if(tool==='throw'){const b=snapshot.bodies.find(b=>b.id===selected);if(b)b.velocity=b.velocity.map((x,k)=>x+velocity[k]);}}
  useSimStore.setState({predicting:true});
  try{worker=new Worker(new URL('./physics/worker.js',import.meta.url),{type:'module'});const rpc=wrap(worker);

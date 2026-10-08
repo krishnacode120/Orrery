@@ -1,3 +1,4 @@
+import {flightEvents,applyFuelBurn} from './flight.js';
 import { stateAt } from './elements.js';
 import { diagnostics, accelerations, verlet, rk4, dormandPrince, accelerationTimestep } from './integrators.js';
 import { validateScenario } from './scenario.js';
@@ -8,7 +9,7 @@ import { realityBodies } from './catalog.js';
 import { interpolateVectors } from './ephemeris.js';
 import { propulsion, vehicleTelemetry, burnVector, communications, lineOfSight, clamp, rotateAxis, EARTH_ROTATION } from './vehicles.js';
 import { MAX_EVENTS, MAX_BODIES } from './limits.js';
-import { DAY, MIN_JD, MAX_JD, norm, add, sub, scale, cross, EARTH_AXIS } from './units.js';
+import { DAY, MIN_JD, MAX_JD, norm, add, sub, scale, cross, unit, EARTH_AXIS } from './units.js';
 
 export class Engine {
   load(scenario) {
@@ -39,7 +40,7 @@ export class Engine {
       const parent=s.bodies.find(p=>p.id===b.parentId);
       if(b.rocket) {
         const previousPhase=b.rocket.phase;
-        if(previousPhase==='prelaunch'&&parent&&dt>0){const r=rotateAxis(sub(b.position,parent.position),EARTH_AXIS,EARTH_ROTATION*dt);b.position=add(parent.position,r);b.velocity=add(parent.velocity,cross(scale(EARTH_AXIS,EARTH_ROTATION),r));}
+        if(previousPhase==='prelaunch'&&parent&&dt>0){const axis=unit(parent.spin.axis),rotation=2*Math.PI/parent.spin.period,r=rotateAxis(sub(b.position,parent.position),axis,rotation*dt);b.position=add(parent.position,r);b.velocity=add(parent.velocity,cross(scale(axis,rotation),r));}
         propulsion(b,parent,dt,jd,s.settings,notify,spawn);
         if(b.rocket.phase!==previousPhase)this.log('mission',b.name+': '+previousPhase+' → '+b.rocket.phase,[b.id],jd);
         if(b.rocket.deployRequested && !b.rocket.deployed) {
@@ -64,12 +65,12 @@ export class Engine {
       const b=this.s.bodies.find(b=>b.id===node.bodyId),parent=this.s.bodies.find(p=>p.id===b?.parentId);
       if(!b || !parent || b.locked)continue;
       const before=diagnostics(this.s.bodies,this.s.settings),dv=burnVector(b,parent,node);
-      b.velocity=add(b.velocity,dv);node.executed=true;node.actualJD=jd;
+      if(node.fuelAware){try{node.propellantUsed=applyFuelBurn(b,dv);}catch(error){node.executed=true;node.failed=error.message;this.log('mission',b.name+': maneuver rejected — '+error.message,[b.id],jd);continue;}}else b.velocity=add(b.velocity,dv);node.executed=true;node.actualJD=jd;
       const after=diagnostics(this.s.bodies,this.s.settings);
       this.baseline.energy+=after.energy-before.energy;
       for(let k=0;k<3;k++)this.baseline.angular[k]+=after.angular[k]-before.angular[k];
-      this.eventEnergyDelta+=after.energy-before.energy;
-      this.log('burn',b.name+': ideal impulsive Δv '+norm(dv).toFixed(2)+' m/s',[b.id],jd,after.energy-before.energy,0);
+      this.eventEnergyDelta+=after.energy-before.energy;this.eventMassDelta+=after.mass-before.mass;
+      this.log('burn',b.name+': ideal impulsive Δv '+norm(dv).toFixed(2)+' m/s',[b.id],jd,after.energy-before.energy,after.mass-before.mass);
     }
   }
   advance(seconds) {
@@ -92,26 +93,27 @@ export class Engine {
         const jd=s.jd+advanced/DAY;
         if(target>0)this.burns(jd);
         let maximum=p.adaptive?accelerationTimestep(s.bodies,p):p.stepSeconds;
-        if(s.bodies.some(b=>b.rocket && !['prelaunch','complete','crashed'].includes(b.rocket.phase)))maximum=Math.min(maximum,.25);
+        if(s.bodies.some(b=>b.rocket && b.rocket.engineOn))maximum=Math.min(maximum,.25);
         const planned=s.maneuvers.filter(n=>!n.executed&&n.jd>jd).map(n=>(n.jd-jd)*DAY);
         if(target>0&&planned.length)maximum=Math.min(maximum,...planned);
         if(maximum<p.minStep)throw new Error('Required timestep below minimum; lower minimum step or resolve the encounter');
         if(p.integrator==='dopri')maximum=Math.min(maximum,this.nextStep);
         let dt=Math.sign(target)*Math.min(maximum,Math.abs(target-advanced));
         const previous=dt>0?new Map(s.bodies.map(b=>[b.id,[...b.position]])):null;
-        const splitPropulsion=s.bodies.some(b=>b.rocket && b.rocket.phase!=='prelaunch');
+        const splitPropulsion=s.bodies.some(b=>b.rocket && b.rocket.engineOn);
         if(dt>0&&splitPropulsion)this.vehicles(dt/2,jd);
         if(p.integrator==='dopri') {
           // Thrust-driven vehicles use a capped fixed RK4 gravity substep; a DP
           // rejection cannot roll back already emitted exhaust/staging.
-          if(s.bodies.some(b=>b.rocket && b.rocket.phase!=='prelaunch'))rk4(s.bodies,dt,p);
+          if(s.bodies.some(b=>b.rocket && b.rocket.engineOn))rk4(s.bodies,dt,p);
           else {const accepted=dormandPrince(s.bodies,dt,p);dt=accepted.dt;this.nextStep=Math.max(p.minStep,accepted.nextStep);rejected+=accepted.rejected;errorEstimate=accepted.error;}
         } else (p.integrator==='rk4'?rk4:verlet)(s.bodies,dt,p);
-        if(dt>0)this.vehicles(splitPropulsion?dt/2:dt,jd+dt/DAY);
+        if(dt>0){for(const b of s.bodies)if(b.locked&&(b.rocket?.phase==='prelaunch'||b.metadata.surfaceBound)){const parent=s.bodies.find(x=>x.id===b.parentId),old=previous.get(b.parentId);if(parent&&old)b.position=add(b.position,sub(parent.position,old));}this.vehicles(splitPropulsion?dt/2:dt,jd+dt/DAY);}
         if(s.bodies.some(b=>!b.position.every(Number.isFinite)||!b.velocity.every(Number.isFinite)))throw new Error('Physics state overflow; reduce timestep');
         advanced+=dt;lastDt=dt;steps++;
         if(dt>0) {
           const emit=(before,after,event)=>this.account(before,after,event,s.jd+advanced/DAY);
+          flightEvents(s,dt,(kind,message,ids)=>{this.log(kind,message,ids,s.jd+advanced/DAY);this.topologyRevision++;});
           s.bodies=extremeEvents(s.bodies,p,previous,dt,s.jd+advanced/DAY,emit);
           s.bodies=resolveCollisions(s.bodies,p,previous,dt,emit,s.eventSerial);
           s.bodies=disruptTides(s.bodies,p,emit,s.eventSerial);
@@ -146,7 +148,7 @@ export class Engine {
       angularDrift:this.angularScale?100*norm(delta)/this.angularScale:0,eventEnergyDelta:this.eventEnergyDelta,eventMassDelta:this.eventMassDelta,
       eventCount:s.eventSerial,collisionCount:s.events.filter(e=>['merge','bounce','fragment','absorb'].includes(e.kind)).length,
       activeFragments:s.bodies.filter(b=>b.disrupted).length,steps:this.steps,accepted:this.accepted,rejected:this.rejected,lastDt,errorEstimate,
-      integratorActive:p.integrator==='dopri'&&s.bodies.some(b=>b.rocket&&b.rocket.phase!=='prelaunch')?'rk4 + propulsion split':p.integrator,
+      integratorActive:p.integrator==='dopri'&&activePropulsion?'rk4 + propulsion split':p.integrator,
       computeMs,stepsPerSecond:steps*1000/Math.max(.01,computeMs),warnings,
       gravity:(p.solver==='tree'||p.solver==='auto'&&s.bodies.length>500)&&p.theta>0?'Direct sources + tracer octree':'Direct sources + direct tracers',
       limited:Math.abs(seconds-advanced)>Math.max(1e-3,Math.abs(seconds)*1e-6),advanced};

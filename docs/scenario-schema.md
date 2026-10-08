@@ -6,7 +6,9 @@ Body data preserves all original Phase 1 fields. New fields include visible, met
 
 settings contains G multiplier, softening, step/time scale, integrator, acceleration adaptivity, eta, minimum step, relative and absolute tolerances, solver, theta, collision mode/restitution, fragment count/spread/minimum mass/distribution, Roche multiplier, GR flag and c.
 
-view contains selected body, panel, linear scale, body exaggeration, quality, exposure, labels/paths/trails/guides, camera mode, current pose, named saved poses, keyframes, units, contrast/text/reduced-motion settings, prediction duration/resolution and optional bounded trailHistory. Trail samples contain JD and SI position. Camera coordinates are in their named display scale.
+view contains selected body, panel, reference-frame scale, scaleMode, realDistances, realRadii, per-class display multipliers, body exaggeration, quality, exposure, labels/paths/trails/guides, camera mode, current pose, named saved poses, keyframes, units, contrast/text/reduced-motion settings, prediction duration/resolution and optional bounded trailHistory. Trail samples contain JD and SI position. Camera coordinates are in their named display scale.
+
+Workspace visibility is stored separately in localStorage; physical scenario exports preserve view/scale preferences and mission state. Transfers store SI path points, departure/arrival vectors, target IDs, epoch and the model label. SOI/apsis/landing events use the existing event serial contract. Fuel-aware maneuver nodes retain execution status, propellantUsed, and rejection reason.
 
 rocket stages and guidance state, spacecraft power/configuration, maneuvers, stations, events and telemetry are ordinary JSON. No functions, GPU resources, edit keys or worker buffers are exported. Local save and sharing both validate the same physics contract.
 

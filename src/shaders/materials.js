@@ -32,7 +32,7 @@ export const planetFragment=`
  float diffuse=max(0.,dot(n,normalize(lightDirection)));float rim=pow(1.-max(0.,dot(n,normalize(-vPosition))),3.);
  vec3 lit=color*(.018+.98*diffuse);
  if(kind>.5&&kind<1.5){float darkness=smoothstep(.1,-.3,dot(n,normalize(lightDirection)));lit+=texture2D(nightMap,vUv).rgb*darkness*.8;lit+=vec3(.09,.22,.37)*rim*pow(diffuse,.5)*.55;float ocean=1.-smoothstep(.02,.12,color.r);vec3 halfVector=normalize(normalize(lightDirection)+normalize(-vPosition));lit+=vec3(.15)*pow(max(0.,dot(n,halfVector)),70.)*ocean*diffuse;}
- if(kind>2.5)lit=color*(2.3+.6*detail);
+ if(kind>2.5){float granulation=fbm(p*90.+vec3(time*.0002,0.,0.));float limb=.45+.55*pow(max(0.,dot(n,normalize(-vPosition))),.5);lit=color*(1.6+.9*granulation)*limb;}
  gl_FragColor=vec4(lit,1.);
  #include <tonemapping_fragment>
  #include <colorspace_fragment>

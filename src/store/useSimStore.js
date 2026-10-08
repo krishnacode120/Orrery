@@ -49,6 +49,7 @@ export const useSimStore = create((set, get) => ({
   togglePause() { set({ paused: !get().paused }); },
   step() { set({ paused: true, stepRequest: true }); },
   frame({ jd, stats, state, render, transport, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry }) {
+    const previousEventSerial=get().scenario.eventSerial??0;
     const metadata=bodies??get().scenario.bodies;
     const updates=new Map(dynamic.map(b=>[b.id,b]));
     if(metadata.length!==count || state.length!==count*6)throw new Error('Incomplete worker frame');
@@ -57,6 +58,8 @@ export const useSimStore = create((set, get) => ({
       bodies: metadata.map((b,i) => ({ ...b,...updates.get(b.id),
       position: Array.from(state.subarray(i*6,i*6+3)), velocity: Array.from(state.subarray(i*6+3,i*6+6)) })) },
       stats, render, transport, stepRequest: false });
+    const selected=get().scenario.bodies.find(b=>b.id===get().scenario.view.selected);
+    if(get().scenario.view.autoArrival&&selected?.parentId===get().scenario.view.targetId&&events?.some(e=>e.id>previousEventSerial&&e.kind==='soi'&&e.bodyIds[0]===selected.id)){get().configureView({scale:'planetary',cameraMode:'follow',camera:null});}
   },
   fail(error) { set({ error, paused: true }); },
 }));

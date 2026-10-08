@@ -84,3 +84,23 @@ def test_rate_limit_and_cors(client):
 
 def test_presets(client):
     assert {'solar-now', 'empty'}.issubset({p['id'] for p in client.get('/api/presets').json()})
+
+
+def test_extended_event_and_slow_time_roundtrip(client):
+    value = scenario()
+    value['settings']['timeScale'] = .1
+    value['events'] = [{'id': 1, 'jd': value['jd'], 'kind': 'soi', 'bodyIds': [], 'message': 'Entered influence', 'energyDelta': 0, 'massDelta': 0}]
+    value['eventSerial'] = 1
+    value['view'] = {'realRadii': True, 'realDistances': True, 'scaleMode': 'scientific'}
+    result = client.post('/api/scenarios', json=value)
+    assert result.status_code == 201
+    assert client.get('/api/scenarios/' + result.json()['id']).json() == value
+    value['settings']['timeScale'] = 315576000
+    assert client.post('/api/scenarios', json=value).status_code == 201
+
+
+def test_invalid_display_scales(client):
+    for scale in (0, -1, 10000000, True, 'wide'):
+        value = scenario()
+        value['view'] = {'distanceScale': scale}
+        assert client.post('/api/scenarios', json=value).status_code == 422

@@ -1,13 +1,13 @@
 # Orrery
 
-![Orrery observation workspace](docs/screenshots/earth-workspace.png)
+![Orrery observation workspace](docs/screenshots/immersive-earth.png)
 
 **Explore the solar system. Inspect an orbit. Build a simulation.**
 
 
-Orrery is a local-first 3D orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a two-stage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
+Orrery is a local-first 3D orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a configurable multistage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
 
-The interface uses a visual object navigator, a dedicated observation viewport, tabbed inspection and mission workspaces, local/system typography, and keyboard-accessible controls. The [workspace redesign](docs/workspace-redesign.md) documents this revision. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
+The simulation fills the window. A compact object navigator, collapsible tool panels, selectable workspace layouts, and keyboard navigation surround it. Press **H** to hide or restore the interface. The [exploration and flight guide](docs/exploration-upgrade.md) documents the current workspace. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
 
 ## Run on Windows
 
@@ -40,13 +40,13 @@ Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optio
 - **Inspector** edits mass, radius, density, state vectors, bound orbital elements, spin, appearance, trails, constraints, collision overrides, and metadata. Per-field units and global preferences preserve SI internally.
 - **Create objects** place/throw objects in the ecliptic plane, spawn extreme objects, and brush rings, streams, fields or clouds. Inspector actions include circularize, duplicate, moon, binary companion, fragment, mass/radius scaling, velocity operations, barycenter centering, and parameterized supernova.
 - **Prediction** integrates a cloned state in a separate worker. Duration, resolution and mass preview are configurable. Dashed paths include planned burns. The displayed horizon is the horizon actually computed within the budget.
-- **Scenario library** includes 24 built-in examples, searchable categories/tags, saved/recent local snapshots, shared-ID loading, import/export, and backend sharing.
+- **Scenario library** includes 37 built-in examples, searchable categories/tags, saved/recent local snapshots, shared-ID loading, import/export, and backend sharing.
 - **Simulation settings** select integrator, solver, adaptive controls, collisions, GR approximation, units, visual quality, accessibility, cameras and capture.
 - **Events** combines collision/tidal/mission events with conservation diagnostics.
 
 ## Rocket View and mission control
 
-Load **Launch vehicle** from Scenarios. Choose **Ignition / launch** to release the rotating-Earth pad constraint and start the engine. The worker integrates gravity, changing mass, propellant flow, thrust, exponential-atmosphere drag, feedback guidance, stage separation, insertion, and payload deployment.
+Use **Mission planner → Add launch vehicle at departure** to keep the entire solar system running around the launch, or load **Launch vehicle** from Scenarios for an isolated Earth test. Choose **Ignition / launch** to release the rotating-Earth pad constraint and start the engine. The worker integrates gravity, changing mass, propellant flow, thrust, exponential-atmosphere drag, feedback guidance, stage separation, insertion, and payload deployment.
 
 Throttle, target altitude, manual pitch/heading/roll, Isp, thrust, stage masses, drag area and coefficient are editable. Guidance and auto-staging are independently switchable. The default launch is covered by an automated end-to-end test that reaches a bound orbit before fuel exhaustion.
 
@@ -58,7 +58,15 @@ Load LEO, MEO, GEO, polar, Sun-synchronous-like, elliptical, highly elliptical, 
 
 Communication status comes from range and geometric line-of-sight checks. Power uses a simple eclipse/solar/load energy balance. Earth-fixed longitudes use an explicitly illustrative J2000 Greenwich origin. The SSO-like preset sets inclination only: J2 nodal precession is not modeled.
 
-Maneuver planning supports prograde, retrograde, radial, normal and arbitrary inertial-vector burns. Burns execute at their scheduled epoch and appear in prediction/event logs. They are ideal impulses; no finite engine duration or propellant debit is implied.
+Maneuver planning supports prograde, retrograde, radial, normal and arbitrary inertial-vector burns. Burns execute at their scheduled epoch and appear in prediction/event logs. They are ideal impulses. Rocket burns can debit active-stage propellant using the rocket equation; insufficient fuel rejects the burn atomically. Non-rocket burns remain ideal commanded impulses. These planned burns do not model finite engine duration.
+
+## Transfers and exploration
+
+The planner computes zero-revolution Lambert transfers against a moving, osculating destination and shows circular Hohmann launch-window estimates. Planet departures report heliocentric transfer estimates; parked vehicles use a hyperbolic ejection calculation and reject paths crossing the departure surface. Explicit cruise demonstrations skip launch/escape. All resulting vehicles propagate under the existing N-body solver.
+
+SOI entry/exit updates analysis frames and logs events without teleporting or switching off other gravity sources. Navball directions, staged delta-v, fuel flow, target range, apsis events and circularization burns are available in Flight operations. Landing is a contact/impact model; powered descent is manual. **A launch-to-Mars-capture mission with course corrections has not been validated end-to-end.** Lambert and patched-conic estimates do not guarantee an encounter or capture under N-body perturbations.
+
+God Mode, the collision laboratory, live measurement tool, influence guides, minimap and optional tracking inset work in the same scene. The solar preset includes eight planets and 18 major moons; moon phases and mean circular paths are approximate unless Horizons replaces them.
 
 ## Physics choices
 
@@ -82,7 +90,7 @@ Open **Horizons**, choose an epoch and optionally add Pluto, Ceres, Voyager 1/2 
 
 ## Rendering and performance
 
-Camera-relative positions are formed in Float64 before Three.js receives local coordinates. System, planetary, Earth-orbit, local-vehicle and true-radius views use different linear display units; no nonlinear scale is applied to the physics.
+Camera-relative positions are formed in Float64 before Three.js receives local coordinates. System, planetary, Earth-orbit, local-vehicle and true-radius views use different display units. **Scientific** preserves physical distances and radii; **Visibility** enlarges bodies; **Educational** compresses system distances logarithmically; **Custom** exposes separate multipliers. Display transforms never change SI physics.
 
 Bundled CC BY 4.0 planet maps, day/night shading, clouds, atmospheric rims, solar emission, rings and procedural custom materials improve surface readability. A deterministic generated star distribution supplies background depth; it is not an astrometric star catalog.
 
@@ -98,12 +106,18 @@ PNG captures the viewport. WebM records the viewport at selectable output height
 
 ## Controls and accessibility
 
-Drag/touch to orbit; wheel/pinch to zoom; right-drag/two fingers to pan. Click a body or use the bottom object navigator to frame it. The System / Moons / Vehicles filters help navigate related objects. Use Overview for live measurements and Properties for editing.
+Drag/touch to orbit; wheel/pinch to zoom; right-drag/two fingers to pan. Click a body or use the collapsible left object navigator to frame it. The System / Moons / Vehicles filters help navigate related objects. Use Overview for live measurements and Properties for editing.
 
 | Key | Action |
 | --- | --- |
 | Space | Play / pause |
+| H | Hide / restore all interface |
 | F | Focus local view |
+| Shift F | Frame the solar system |
+| G | Open God Mode |
+| . | Step simulation |
+| R | Reverse time direction |
+| Ctrl-drag / Shift-drag body | Move / add velocity in Sandbox |
 | Ctrl/Cmd K | Command palette |
 | Ctrl/Cmd Z | Undo |
 | Ctrl/Cmd Shift Z | Redo |

@@ -53,6 +53,7 @@ class ConfigBlock(BaseModel):
     model_config = ConfigDict(extra='allow', allow_inf_nan=False)
 
 class EngineStage(ConfigBlock):
+    engineCount: int = Field(default=1, ge=1, le=100)
     name: str = Field(max_length=120)
     dryMass: FiniteFloat = Field(gt=0)
     fuel: FiniteFloat = Field(ge=0)
@@ -215,8 +216,8 @@ class Settings(StrictModel):
 
     @model_validator(mode='after')
     def speed(self):
-        if not 1 <= abs(self.timeScale) <= 1e8:
-            raise ValueError('Speed must be between 1x and 1e8x')
+        if not .01 <= abs(self.timeScale) <= 4e8:
+            raise ValueError('Speed must be between 0.01x and 4e8x')
         if self.minStep > self.stepSeconds:
             raise ValueError('Minimum step cannot exceed maximum step')
         return self
@@ -225,7 +226,7 @@ class Settings(StrictModel):
 class PhysicalEvent(StrictModel):
     id: int = Field(gt=0, le=9007199254740991)
     jd: FiniteFloat = Field(ge=2378496.5, lt=2470172.5)
-    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova']
+    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova', 'soi', 'apsis', 'landing']
     bodyIds: list[Annotated[str, Field(max_length=80)]] = Field(max_length=16)
     message: str = Field(max_length=1000)
     energyDelta: FiniteFloat
@@ -281,6 +282,16 @@ class Scenario(StrictModel):
             Maneuver.model_validate(node)
         for station in self.stations:
             Station.model_validate(station)
+        if self.view.get('scaleMode', 'visibility') not in ('scientific', 'visibility', 'educational', 'custom'):
+            raise ValueError('Invalid scale model')
+        for key in ('distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'):
+            if key in self.view:
+                value=self.view[key]
+                if isinstance(value, bool) or not isinstance(value, (int,float)) or not .01 <= value <= 1e6:
+                    raise ValueError('Invalid display scale: '+key)
+        for key in ('realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'):
+            if key in self.view and not isinstance(self.view[key], bool):
+                raise ValueError('Invalid view flag: '+key)
         cameras=self.view.get('savedCameras',[])+self.view.get('keyframes',[])
         if len(cameras)>132:
             raise ValueError('Too many camera states')

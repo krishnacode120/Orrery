@@ -1,3 +1,4 @@
+import {defaultRocket,rocketMass} from '../physics/vehicles.js';
 import { body } from '../physics/body.js';
 import { G, AU, SOLAR_MASS, EARTH_MASS, EARTH_RADIUS, add, sub, scale, unit, norm, cross } from '../physics/units.js';
 import { derivedOrbit, primaryFor, stateFromElements } from '../physics/orbital.js';
@@ -18,6 +19,7 @@ export function circularize(b,bodies,settings) {
 export function createBody(kind,position=[AU,0,0],velocity=[0,0,0]) {
   const id=uid(kind),b=body({id,name:kind[0].toUpperCase()+kind.slice(1),type:kind,position:[...position],velocity:[...velocity],
     mass:EARTH_MASS,radius:EARTH_RADIUS,color:'#a0adbc'});
+  if(kind==='rocket'){const rocket=defaultRocket();rocket.phase='coasting';rocket.attitudeMode='prograde';rocket.engineOn=false;Object.assign(b,{rocket,mass:rocketMass(rocket),radius:5,massless:true,material:'spacecraft',collisionMode:'none'});}
   if(kind==='star')Object.assign(b,{mass:SOLAR_MASS,radius:6.957e8,color:'#e9c593',temperature:5772,luminosity:3.828e26});
   if(kind==='asteroid'||kind==='comet')Object.assign(b,{mass:1e14,radius:5000,color:'#aaa69e'});
   if(kind==='test particle')Object.assign(b,{type:'asteroid',mass:0,massless:true,radius:1000,name:'Test particle'});
@@ -33,6 +35,11 @@ export function createBody(kind,position=[AU,0,0],velocity=[0,0,0]) {
 export function godAction(s,id,action,value=2) {
   const b=s.bodies.find(b=>b.id===id);if(!b)throw new Error('Select a body first');
   if(s.mode!=='sandbox')throw new Error('Convert to Sandbox before editing');
+  if(action==='pin')b.locked=!b.locked;
+  if(action==='spin')b.spin.period/=Math.max(.001,value);
+  if(action==='reverse-orbit'){const p=primaryFor(b,s.bodies);if(p)b.velocity=sub(scale(p.velocity,2),b.velocity);}
+  if(action==='escape'){const p=primaryFor(b,s.bodies);if(!p)throw new Error('No primary');b.velocity=add(p.velocity,scale(unit(sub(b.velocity,p.velocity)),Math.sqrt(2*G*s.settings.gMultiplier*p.mass/norm(sub(b.position,p.position)))*1.01));}
+  if(['elliptical','apo-up','apo-down','peri-up','peri-down'].includes(action)){const d=derivedOrbit(b,s.bodies,s.settings),o=d.elements;if(!o||o.e>=1)throw new Error('Requires a bound orbit');let pe=o.periapsis,ap=o.apoapsis;const factor=Math.max(1.01,Math.abs(value));if(action==='elliptical')ap=pe*factor;if(action==='apo-up')ap*=factor;if(action==='apo-down')ap=Math.max(pe,ap/factor);if(action==='peri-up')pe=Math.min(ap,pe*factor);if(action==='peri-down')pe=Math.max(d.primary.radius*1.01,pe/factor);editElements(s,id,{a:(pe+ap)/2,e:(ap-pe)/(ap+pe)});}
   if(action==='mass')b.mass*=value;
   if(action==='radius')b.radius*=value;
   if(action==='zero')b.velocity=[0,0,0];

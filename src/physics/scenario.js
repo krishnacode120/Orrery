@@ -56,6 +56,7 @@ export function validateScenario(input) {
       const r=b.rocket;require(Array.isArray(r.stages)&&r.stages.length>=1&&r.stages.length<=8,'Invalid rocket stages');
       require(Number.isInteger(r.stage)&&r.stage>=0&&r.stage<r.stages.length&&r.payloadMass>=0&&r.throttle>=0&&r.throttle<=1
         &&r.targetAltitude>=100000&&r.targetAltitude<=1e8&&r.area>0&&r.cd>=0&&vector(r.orientation),'Invalid rocket configuration');
+      for(const stage of r.stages){require(Number.isInteger(stage.engineCount??1)&&(stage.engineCount??1)>0&&(stage.engineCount??1)<=100,'Invalid engine count');}
       for(const stage of r.stages)require(stage.dryMass>0&&stage.fuel>=0&&stage.fuel<=stage.capacity&&stage.thrust>0&&stage.isp>0,'Invalid engine/fuel configuration');
       b.mass=rocketMass(r);
     }
@@ -91,6 +92,9 @@ export function validateScenario(input) {
       require(samples[0].jd<=ep.startJD+1e-8&&samples.at(-1).jd>=ep.endJD-1e-8,'Incomplete playback coverage');
     }
   }
+  require(['scientific','visibility','educational','custom'].includes(s.view.scaleMode??'visibility'),'Invalid scale model');
+  for(const key of ['distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'])if(s.view[key]!==undefined)require(finite(s.view[key])&&s.view[key]>=.01&&s.view[key]<=1e6,'Invalid display scale: '+key);
+  for(const key of ['realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
   require(Array.isArray(s.view.savedCameras)&&s.view.savedCameras.length<=100&&Array.isArray(s.view.keyframes)&&s.view.keyframes.length<=32,'Invalid camera collection');
   for(const c of [...s.view.savedCameras,...s.view.keyframes,...(s.view.camera?[s.view.camera]:[])])require(vector(c.position)&&vector(c.target)&&['system','planetary','earth','vehicle','true'].includes(c.scale),'Invalid camera pose');
   s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
@@ -114,7 +118,7 @@ export function validateScenario(input) {
   require(finite(p.gMultiplier) && p.gMultiplier >= 0 && p.gMultiplier <= 1000, 'G multiplier must be 0–1000');
   require(finite(p.softening) && p.softening >= 1 && p.softening <= 1e12, 'Softening must be 1–1e12 m');
   require(finite(p.stepSeconds) && p.stepSeconds >= 0.01 && p.stepSeconds <= 86400, 'Timestep must be 0.01–86400 seconds');
-  require(finite(p.timeScale) && Math.abs(p.timeScale) >= 1 && Math.abs(p.timeScale) <= 1e8, 'Speed must be 1x–1e8x');
+  require(finite(p.timeScale) && Math.abs(p.timeScale) >= .01 && Math.abs(p.timeScale) <= 4e8, 'Speed must be 0.01x–4e8x');
   if (s.mode === 'reality') require(['sun','mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'].every(id => ids.has(id)), 'Reality requires the eight planets and Sun');
   s.events ??= []; s.eventSerial ??= 0;
   require(Number.isSafeInteger(s.eventSerial)&&s.eventSerial>=0,'Invalid event serial');
@@ -122,7 +126,7 @@ export function validateScenario(input) {
   const eventIds=new Set();
   for(const event of s.events) {
     require(Number.isSafeInteger(event.id)&&event.id>0&&event.id<=s.eventSerial&&!eventIds.has(event.id),'Invalid event ID');eventIds.add(event.id);
-    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova'].includes(event.kind),'Invalid event kind');
+    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova','soi','apsis','landing'].includes(event.kind),'Invalid event kind');
     require(finite(event.jd)&&event.jd>=MIN_JD&&event.jd<MAX_JD,'Invalid event date');
     require(typeof event.message==='string'&&event.message.length<=1000,'Invalid event message');
     require(Array.isArray(event.bodyIds)&&event.bodyIds.length<=16&&event.bodyIds.every(x=>typeof x==='string'&&x.length<=80),'Invalid event body IDs');

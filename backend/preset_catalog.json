@@ -9,6 +9,123 @@
     ]
   },
   {
+    "id": "solar-real",
+    "name": "Solar system · real scale",
+    "category": "astronomy",
+    "description": "Physical orbital distances and radii",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "earth-moon",
+    "name": "Earth–Moon system",
+    "category": "astronomy",
+    "description": "Local Earth and Moon exploration",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "jupiter-system",
+    "name": "Jupiter system",
+    "category": "astronomy",
+    "description": "Galilean moons and the giant planet",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "saturn-system",
+    "name": "Saturn system",
+    "category": "astronomy",
+    "description": "Saturn, rings and major moons",
+    "tags": [
+      "astronomy"
+    ]
+  },
+  {
+    "id": "mars-transfer",
+    "name": "Earth → Mars",
+    "category": "mission",
+    "description": "Lambert-initialized cruise outside Earth SOI",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "venus-transfer",
+    "name": "Earth → Venus",
+    "category": "mission",
+    "description": "Inner-planet cruise demonstration",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "jupiter-transfer",
+    "name": "Jupiter flyby",
+    "category": "mission",
+    "description": "Outer-planet cruise demonstration",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "moon-transfer",
+    "name": "Moon transfer",
+    "category": "mission",
+    "description": "Earth-centered Lambert transfer from parking orbit",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "jupiter-heavy",
+    "name": "Jupiter ×1000",
+    "category": "dynamics",
+    "description": "Mass edit in the live solar system",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "solar-escape",
+    "name": "Solar escape",
+    "category": "mission",
+    "description": "Explorer beyond solar escape speed",
+    "tags": [
+      "mission"
+    ]
+  },
+  {
+    "id": "earth-mars-impact",
+    "name": "Earth vs Mars",
+    "category": "dynamics",
+    "description": "Fragmenting impact experiment",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "asteroid-impact",
+    "name": "Asteroid vs Earth",
+    "category": "dynamics",
+    "description": "High-speed asteroid impact",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
+    "id": "star-impact",
+    "name": "Two stars collision",
+    "category": "dynamics",
+    "description": "Merging stellar encounter",
+    "tags": [
+      "dynamics"
+    ]
+  },
+  {
     "id": "empty",
     "name": "Empty workspace",
     "category": "sandbox",
