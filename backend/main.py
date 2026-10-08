@@ -21,10 +21,6 @@ async def lifespan(app):
 
 
 app = FastAPI(title='Orrery API', version='1.0.0', lifespan=lifespan)
-app.add_middleware(CORSMiddleware,
-    allow_origins=os.getenv('ORRERY_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173').split(','),
-    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-    allow_headers=['Content-Type', 'X-Edit-Key'])
 buckets = OrderedDict()
 MAX_BYTES = 32 * 1024 * 1024
 
@@ -56,6 +52,12 @@ async def limits(request: Request, call_next):
     response = await call_next(request)
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
+
+
+app.add_middleware(CORSMiddleware,
+    allow_origins=os.getenv('ORRERY_ORIGINS', 'http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:4173').split(','),
+    allow_methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allow_headers=['Content-Type', 'X-Edit-Key'])
 
 
 @app.get('/api/health')

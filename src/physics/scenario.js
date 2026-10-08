@@ -11,11 +11,15 @@ const vector = (x) => Array.isArray(x) && x.length === 3 && x.every(finite);
 function require(condition, message) { if (!condition) throw new Error(message); }
 
 export function validateScenario(input) {
+  require(input&&typeof input==='object'&&!Array.isArray(input),'Scenario must be an object');
+  require(input.view==null||typeof input.view==='object'&&!Array.isArray(input.view),'View must be an object');
   const s = structuredClone(input);
   require(s?.version === 1 || s?.version === 2, 'Unsupported scenario version');
   s.version=2;
   s.view={...structuredClone(DEFAULT_VIEW),...s.view,units:{...DEFAULT_VIEW.units,...s.view?.units}};
   s.view.navigation=validateNavigation(s.view.navigation);s.view.cameraMode=cameraMode(s.view.cameraMode);
+  for(const [key,limit] of [['savedCameras',100],['keyframes',32]])require(Array.isArray(s.view[key])&&s.view[key].length<=limit&&s.view[key].every(c=>c&&typeof c==='object'&&!Array.isArray(c)),'Invalid '+key);
+  if(s.view.trailHistory!=null){const history=s.view.trailHistory;require(typeof history==='object'&&!Array.isArray(history)&&Object.keys(history).length<=40,'Invalid trail history');for(const [id,points] of Object.entries(history))require(id.length<=80&&Array.isArray(points)&&points.length<=1024&&points.every(p=>p&&finite(p.jd)&&p.jd>=MIN_JD&&p.jd<SANDBOX_MAX_JD&&vector(p.position)&&p.position.every(x=>Math.abs(x)<=1e20)),'Invalid trail samples');}
   for(const [i,c] of s.view.savedCameras.entries()){c.id??='camera-'+i;c.name??='View '+(i+1);require(typeof c.id==='string'&&c.id.length<=80&&typeof c.name==='string'&&c.name.length<=80,'Invalid camera bookmark name');}
   s.view.timeBookmarks??=[];require(Array.isArray(s.view.timeBookmarks)&&s.view.timeBookmarks.length<=100&&s.view.timeBookmarks.every(x=>typeof x.name==='string'&&x.name.length<=80&&finite(x.jd)&&x.jd>=MIN_JD&&x.jd<MAX_JD),'Invalid time bookmarks');
   s.tags??=[];s.description??='';s.provenance??={source:s.mode==='reality'?'jpl':'custom',epochJD:s.jd,note:'Migrated Phase 1 snapshot'};
@@ -28,12 +32,14 @@ export function validateScenario(input) {
   require(Array.isArray(s.tags)&&s.tags.length<=20&&s.tags.every(x=>typeof x==='string'&&x.length<=40),'Invalid tags');
   require(typeof s.description==='string'&&s.description.length<=4000,'Invalid description');
   require(Array.isArray(s.maneuvers)&&s.maneuvers.length<=256,'Too many maneuvers');
-  for(const n of s.maneuvers)require(typeof n.id==='string'&&typeof n.bodyId==='string'&&finite(n.jd)&&finite(n.deltaV)&&n.deltaV>=0&&n.deltaV<=1e7
+  require(new Set(s.maneuvers.map(n=>n?.id)).size===s.maneuvers.length,'Duplicate maneuver IDs');
+  for(const n of s.maneuvers)require(n&&typeof n.id==='string'&&typeof n.bodyId==='string'&&finite(n.jd)&&n.jd>=MIN_JD&&n.jd<SANDBOX_MAX_JD&&finite(n.deltaV)&&n.deltaV>=0&&n.deltaV<=1e7
     &&['prograde','retrograde','in','out','normal','antinormal','vector'].includes(n.direction)&&vector(n.vector)&&typeof n.executed==='boolean','Invalid maneuver');
   for(const n of s.maneuvers)require(Math.hypot(...n.vector)<=1e7,'Maneuver vector exceeds 10,000 km/s');
   for(const n of s.maneuvers)if(n.components)require(vector(n.components)&&Math.hypot(...n.components)<=1e7,'Maneuver components must be transverse/prograde, normal and radial SI values');
   require(Array.isArray(s.stations)&&s.stations.length<=128,'Too many ground stations');
-  for(const x of s.stations)require(typeof x.id==='string'&&typeof x.name==='string'&&typeof x.bodyId==='string'&&finite(x.latitude)&&Math.abs(x.latitude)<=90
+  require(new Set(s.stations.map(x=>x?.id)).size===s.stations.length,'Duplicate station IDs');
+  for(const x of s.stations)require(x&&typeof x.id==='string'&&typeof x.name==='string'&&typeof x.bodyId==='string'&&finite(x.latitude)&&Math.abs(x.latitude)<=90
     &&finite(x.longitude)&&Math.abs(x.longitude)<=180&&finite(x.altitude??0),'Invalid ground station');
   require(Array.isArray(s.telemetry)&&s.telemetry.length<=2400,'Too many telemetry samples');
   // Reject non-finite numbers anywhere, including optional mission/custom data.

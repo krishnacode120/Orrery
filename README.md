@@ -142,7 +142,7 @@ Mission replay records complete physical snapshots with fuel, stages and events.
 
 ## Persistence and security
 
-IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary. Experiment branches add optional parent metadata and up to 256 scheduled changes. While What-If is active, root autosave preserves the original scenario and a separate key autosaves the experiment session.
+IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary. Experiment branches add optional parent metadata and up to 256 scheduled changes. While What-If is active, root autosave preserves the original scenario and a separate key autosaves the experiment session, including the original pause state. Saved sessions are validated before recovery; corrupt records leave the live scenario intact.
 
 Shared scenarios use unguessable read IDs and separate edit-key capabilities. The URL permits reading; updating, deleting, metadata editing and camera writes require X-Edit-Key. No user authentication is introduced. The in-memory rate limiter is suitable for one API process; deploy an edge/shared limiter before scaling to multiple processes.
 
@@ -160,7 +160,7 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-These headers and a secure context enable SharedArrayBuffer. The transferable ArrayBuffer fallback remains operational without them; append ?fallback to exercise it explicitly. The worker retains exactly-one-RPC ownership and stale-revision rejection in either transport.
+These headers and a secure context enable SharedArrayBuffer. The transferable ArrayBuffer fallback remains operational without them; append ?fallback to exercise it explicitly. The worker retains exactly-one-RPC ownership and stale-revision rejection in either transport. Worker load/decode failures and stalled RPCs end the session with a visible error; editing a parameter or returning to Reality retries with a fresh worker. Prediction workers support cancellation and a timeout.
 
 Configure ORRERY_DB for the SQLite path and ORRERY_ORIGINS for comma-separated allowed origins. Keep SQLite and edit keys out of public static directories. API OpenAPI docs are at /docs.
 
@@ -172,7 +172,7 @@ npm.cmd test -- --reporter=verbose --silent=false
 npm.cmd run build
 ```
 
-See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist. The [upgrade prompt extension](docs/what-if-upgrade-prompt.md) retains the What-If/motion requirements separately from the implementation and verification claims.
+See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist, and the [bug-review report](docs/bug-review.md) for the latest fixes and regression coverage. The [upgrade prompt extension](docs/what-if-upgrade-prompt.md) retains the What-If/motion requirements separately from the implementation and verification claims.
 
 Detailed references: [camera navigation](docs/camera-navigation.md), [replay](docs/replay-schema.md), [physics](docs/physics.md), [architecture](docs/architecture.md), [rendering](docs/rendering.md), [missions](docs/missions.md), [API](docs/api.md), [scenario schema](docs/scenario-schema.md).
 

@@ -22,14 +22,22 @@ export async function localScenario(value) {
   } finally { db.close(); }
 }
 export async function localExperiment(value) {
- const db=await database();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('scenarios',value?'readwrite':'readonly'),store=tx.objectStore('scenarios');let record=value;if(value){record={baseline:validateScenario(value.baseline),experiment:validateScenario(value.experiment),original:validateScenario(value.original)};if(JSON.stringify(record).length>64*1024*1024)throw new Error('Experiment session exceeds 64 MiB');}const request=value?store.put(record,'whatif-session'):store.get('whatif-session');tx.oncomplete=()=>resolve(value?undefined:request.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Experiment persistence aborted'));});}finally{db.close();}
+ const normalize=record=>{
+  if(!record)return null;const validated={baseline:validateScenario(record.baseline),experiment:validateScenario(record.experiment),original:validateScenario(record.original),originalPaused:record.originalPaused??true};
+  if(!validated.experiment.branch||typeof validated.originalPaused!=='boolean')throw new Error('Invalid saved experiment session');
+  if(new TextEncoder().encode(JSON.stringify(validated)).byteLength>64*1024*1024)throw new Error('Experiment session exceeds 64 MiB');return validated;
+ };
+ const record=value?normalize(value):null,db=await database();
+ try{const saved=await new Promise((resolve,reject)=>{const tx=db.transaction('scenarios',value?'readwrite':'readonly'),store=tx.objectStore('scenarios'),request=value?store.put(record,'whatif-session'):store.get('whatif-session');tx.oncomplete=()=>resolve(value?undefined:request.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Experiment persistence aborted'));});return value?undefined:normalize(saved);}finally{db.close();}
 }
 
 export async function api(path, options = {}) {
   const response = await fetch(`/api${path}`, { ...options,
-    headers: { 'Content-Type':'application/json', ...options.headers }, signal: AbortSignal.timeout(30000) });
-  const result = await response.json();
-  if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : `Request failed (${response.status})`);
+    headers: { 'Content-Type':'application/json', ...options.headers }, signal: options.signal??AbortSignal.timeout(30000) });
+  if(response.status===204)return null;
+  const text=await response.text();let result;
+  try{result=text?JSON.parse(text):null;}catch{if(!response.ok)throw new Error(`Request failed (${response.status})`);throw new Error('API returned invalid JSON');}
+  if (!response.ok) throw new Error(typeof result?.detail === 'string' ? result.detail : `Request failed (${response.status})`);
   return result;
 }
 export function exportScenario(scenario) {
@@ -43,14 +51,14 @@ export function download(blob,name) {
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 export async function scenarioLibrary(action='list',value=null,id=null) {
- const db=await database();
+ if(!['list','save','delete'].includes(action))throw new Error('Unknown scenario library action');
+ const scenario=action==='save'?validateScenario(value):null,recordId=id??crypto.randomUUID(),db=await database();
  try{return await new Promise((resolve,reject)=>{
- const tx=db.transaction('scenarios',action==='list'?'readonly':'readwrite'),store=tx.objectStore('scenarios');let request;
- if(action==='save')request=store.put({id:id??crypto.randomUUID(),updatedAt:new Date().toISOString(),scenario:validateScenario(value)},'saved:'+(id??value.name));
- else if(action==='delete')request=store.delete(id);
- else request=store.getAll();
- tx.oncomplete=()=>resolve(action==='list'?request.result.filter(x=>x?.scenario).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)):request.result);
- tx.onerror=()=>reject(tx.error);
+ const tx=db.transaction('scenarios',action==='list'?'readonly':'readwrite'),store=tx.objectStore('scenarios');let request,keys;
+ if(action==='save')request=store.put({id:recordId,updatedAt:new Date().toISOString(),scenario},'saved:'+recordId);
+ else {request=store.getAll();keys=store.getAllKeys();if(action==='delete')keys.onsuccess=()=>{request.result.forEach((item,i)=>{if(item?.scenario&&(item.id===id||keys.result[i]===id))store.delete(keys.result[i]);});};}
+ tx.oncomplete=()=>resolve(action==='list'?request.result.map((item,i)=>item?.scenario?{...item,storageKey:keys.result[i]}:null).filter(x=>x&&typeof x.id==='string'&&typeof x.updatedAt==='string').sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)):action==='save'?recordId:undefined);
+ tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Scenario library transaction aborted'));
  });}finally{db.close();}
 }
 export function exportTelemetry(s,format='csv') {

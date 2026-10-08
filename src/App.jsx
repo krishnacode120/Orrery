@@ -52,7 +52,7 @@ export default function App() {
     const timer=setInterval(async()=>{
       if(pending)return;
       pending=true;
-      try { const experiment=useWhatIfStore.getState(),scenario=useSimStore.getState().scenario;await localScenario(experiment.active?experiment.original.scenario:scenario);if(experiment.active)await localExperiment({baseline:experiment.baseline,experiment:scenario,original:experiment.original.scenario}); }
+      try { const experiment=useWhatIfStore.getState(),scenario=useSimStore.getState().scenario;await localScenario(experiment.active?experiment.original.scenario:scenario);if(experiment.active)await localExperiment({baseline:experiment.baseline,experiment:scenario,original:experiment.original.scenario,originalPaused:experiment.original.paused}); }
       catch(error) { setStorageError(`Autosave unavailable: ${error.message}`); }
       finally { pending=false; }
     },5000);

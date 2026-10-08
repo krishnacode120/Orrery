@@ -69,9 +69,9 @@ export class Engine {
   burns(jd) {
     for(const node of this.s.maneuvers)if(!node.executed && node.jd<=jd+1e-10) {
       const b=this.s.bodies.find(b=>b.id===node.bodyId),parent=this.s.bodies.find(p=>p.id===b?.parentId);
-      if(!b || !parent || b.locked)continue;
+      if(!b || !parent || b.locked){node.executed=true;node.actualJD=jd;node.failed=!b?'Vehicle no longer exists':!parent?'No maneuver primary':'Vehicle is pinned';this.log('mission','Maneuver rejected: '+node.failed,[node.bodyId],jd);continue;}
       const before=diagnostics(this.s.bodies,this.s.settings),dv=burnVector(b,parent,node);
-      if(node.fuelAware){try{node.propellantUsed=applyFuelBurn(b,dv);}catch(error){node.executed=true;node.failed=error.message;this.log('mission',b.name+': maneuver rejected — '+error.message,[b.id],jd);continue;}}else b.velocity=add(b.velocity,dv);node.executed=true;node.actualJD=jd;
+      if(node.fuelAware){try{node.propellantUsed=applyFuelBurn(b,dv);}catch(error){node.executed=true;node.failed=error.message;this.log('mission',b.name+': maneuver rejected — '+error.message,[b.id],jd);continue;}}else b.velocity=add(b.velocity,dv);node.executed=true;node.actualJD=jd;node.actualDeltaV=norm(dv);
       const after=diagnostics(this.s.bodies,this.s.settings);
       this.baseline.energy+=after.energy-before.energy;
       for(let k=0;k<3;k++)this.baseline.angular[k]+=after.angular[k]-before.angular[k];
@@ -138,7 +138,7 @@ export class Engine {
         }
       }
       s.jd+=advanced/DAY;
-      if(seconds>0)this.scheduled(s.jd);
+      if(seconds>0){this.scheduled(s.jd);this.burns(s.jd);}
     }
     this.steps+=steps;this.accepted+=steps;this.rejected+=rejected;
     const d=diagnostics(s.bodies,p),a=accelerations(s.bodies,p);

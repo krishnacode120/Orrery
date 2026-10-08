@@ -201,8 +201,8 @@ class Body(StrictModel):
         if any(abs(x) > 1e20 for x in self.position) or any(abs(x) > 1e12 for x in self.velocity):
             raise ValueError('State vectors exceed supported limits')
         if self.rocket:
-            RocketConfig.model_validate(self.rocket)
-            r = self.rocket
+            r = RocketConfig.model_validate(self.rocket).model_dump(mode='json',exclude_unset=True)
+            self.rocket = r
             stages = r.get('stages', [])
             if not 1 <= len(stages) <= 8 or not 0 <= r.get('stage', -1) < len(stages):
                 raise ValueError('Invalid rocket stages')
@@ -213,15 +213,15 @@ class Body(StrictModel):
                         and stage.get('thrust', 0) > 0 and stage.get('isp', 0) > 0):
                     raise ValueError('Invalid rocket engine')
         if self.blackHole:
-            HoleConfig.model_validate(self.blackHole)
+            self.blackHole = HoleConfig.model_validate(self.blackHole).model_dump(mode='json',exclude_unset=True)
         if self.wormhole:
-            WormholeConfig.model_validate(self.wormhole)
-            w = self.wormhole
-            if w.get('throatRadius', 0) <= 0 or len(w.get('orientation', [])) != 4 or w.get('cooldown', 0) <= 0:
+            w = WormholeConfig.model_validate(self.wormhole).model_dump(mode='json',exclude_unset=True)
+            self.wormhole = w
+            if w.get('throatRadius', 0) <= 0 or len(w.get('orientation', [])) != 4 or w.get('cooldown', 0) <= 0 or math.hypot(*w['orientation']) == 0:
                 raise ValueError('Invalid wormhole')
         if self.spacecraft:
-            SpacecraftConfig.model_validate(self.spacecraft)
-            c = self.spacecraft
+            c = SpacecraftConfig.model_validate(self.spacecraft).model_dump(mode='json',exclude_unset=True)
+            self.spacecraft = c
             if not 0 <= c.get('battery', -1) <= 1 or c.get('capacityWh', 0) <= 0 or c.get('range', 0) <= 0:
                 raise ValueError('Invalid spacecraft power/communications')
         return self
@@ -364,7 +364,7 @@ class Scenario(StrictModel):
         def finite_json(value, depth=0):
             if depth > 20:
                 raise ValueError('JSON is nested too deeply')
-            if isinstance(value, float) and not math.isfinite(value):
+            if isinstance(value,(int,float)) and not isinstance(value,bool) and not number(value):
                 raise ValueError('Non-finite JSON number')
             if isinstance(value, dict):
                 for x in value.values():
@@ -372,10 +372,14 @@ class Scenario(StrictModel):
             elif isinstance(value, (tuple, list)):
                 for x in value:
                     finite_json(x, depth + 1)
-        for node in self.maneuvers:
-            Maneuver.model_validate(node)
-        for station in self.stations:
-            Station.model_validate(station)
+        if self.maneuvers:
+            self.maneuvers=[Maneuver.model_validate(node).model_dump(mode='json',exclude_unset=True) for node in self.maneuvers]
+        if self.stations:
+            self.stations=[Station.model_validate(station).model_dump(mode='json',exclude_unset=True) for station in self.stations]
+        if len({n['id'] for n in self.maneuvers}) != len(self.maneuvers):
+            raise ValueError('Duplicate maneuver IDs')
+        if len({s['id'] for s in self.stations}) != len(self.stations):
+            raise ValueError('Duplicate station IDs')
         if self.view.get('scaleMode', 'visibility') not in ('scientific', 'visibility', 'educational', 'custom'):
             raise ValueError('Invalid scale model')
         for key in ('distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'):
@@ -387,10 +391,30 @@ class Scenario(StrictModel):
             if key in self.view and not isinstance(self.view[key], bool):
                 raise ValueError('Invalid view flag: '+key)
         if self.view.get('navigation'):
-            NavigationConfig.model_validate(self.view['navigation'])
+            self.view['navigation']=NavigationConfig.model_validate(self.view['navigation']).model_dump(mode='json',exclude_unset=True)
         time_bookmarks=self.view.get('timeBookmarks',[])
         if not isinstance(time_bookmarks,list) or len(time_bookmarks)>100 or any(not isinstance(x,dict) or not isinstance(x.get('name'),str) or len(x['name'])>80 or not isinstance(x.get('jd'),(int,float)) or not 2378496.5<=x['jd']<2470172.5 for x in time_bookmarks):
             raise ValueError('Invalid time bookmarks')
+        for key, limit in (('savedCameras',100),('keyframes',32)):
+            value=self.view.get(key,[])
+            if not isinstance(value,list) or len(value)>limit or any(not isinstance(c,dict) for c in value):
+                raise ValueError('Invalid '+key)
+        history=self.view.get('trailHistory',{})
+        if not isinstance(history,dict) or len(history)>40:
+            raise ValueError('Invalid trail history')
+        def number(x):
+            if not isinstance(x,(int,float)) or isinstance(x,bool):
+                return False
+            try:
+                return math.isfinite(x)
+            except OverflowError:
+                return False
+        for target,points in history.items():
+            if not isinstance(target,str) or len(target)>80 or not isinstance(points,list) or len(points)>1024:
+                raise ValueError('Invalid trail samples')
+            for point in points:
+                if not isinstance(point,dict) or not number(point.get('jd')) or not 2378496.5<=point['jd']<2816787.5 or not isinstance(point.get('position'),list) or len(point['position'])!=3 or any(not number(x) or abs(x)>1e20 for x in point['position']):
+                    raise ValueError('Invalid trail samples')
         cameras=self.view.get('savedCameras',[])+self.view.get('keyframes',[])
         if len(cameras)>132:
             raise ValueError('Too many camera states')
@@ -400,18 +424,18 @@ class Scenario(StrictModel):
             CameraState.model_validate(self.view['camera'])
         if self.ephemeris:
             ep=self.ephemeris
-            if not isinstance(ep.get('tracks'),dict) or not 2378496.5<=ep.get('startJD',0)<ep.get('endJD',0)<2470172.5:
+            if not isinstance(ep.get('tracks'),dict) or not number(ep.get('startJD')) or not number(ep.get('endJD')) or not 2378496.5<=ep['startJD']<ep['endJD']<2470172.5:
                 raise ValueError('Invalid ephemeris coverage')
             for target,samples in ep['tracks'].items():
                 if target not in ids or not isinstance(samples,list) or not 2<=len(samples)<=129:
                     raise ValueError('Invalid ephemeris samples')
                 previous=-math.inf
                 for sample in samples:
-                    if not isinstance(sample,dict) or not isinstance(sample.get('jd'),(float,int)) or sample['jd']<=previous:
+                    if not isinstance(sample,dict) or not number(sample.get('jd')) or sample['jd']<=previous or not 2378496.5<=sample['jd']<2470172.5:
                         raise ValueError('Non-monotonic ephemeris')
                     previous=sample['jd']
                     for key in ('position','velocity'):
-                        if not isinstance(sample.get(key),list) or len(sample[key])!=3 or any(not isinstance(x,(int,float)) for x in sample[key]):
+                        if not isinstance(sample.get(key),list) or len(sample[key])!=3 or any(not number(x) or abs(x)>1e20 for x in sample[key]):
                             raise ValueError('Invalid ephemeris vector')
         finite_json(self.model_dump())
         return self

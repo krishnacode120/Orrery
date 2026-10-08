@@ -12,20 +12,35 @@ from backend.db import connection
 router = APIRouter(prefix='/api/horizons', tags=['horizons'])
 
 
+def vector_rows(payload):
+    if not isinstance(payload,dict) or payload.get('error'):
+        raise ValueError('Invalid Horizons response')
+    text=payload.get('result')
+    if not isinstance(text,str) or '$$SOE' not in text or '$$EOE' not in text:
+        raise ValueError('Horizons returned no state vectors')
+    segment=text.split('$$SOE',1)[1].split('$$EOE',1)[0].strip()
+    states=[]
+    for row in csv.reader(io.StringIO(segment)):
+        if not row or not any(x.strip() for x in row):
+            continue
+        if len(row)<8:
+            raise ValueError('Incomplete vector')
+        epoch=float(row[0].strip().replace('D','E'))
+        values=[float(x.strip().replace('D','E'))*1000 for x in row[2:8]]
+        if not math.isfinite(epoch) or not all(math.isfinite(x) for x in values):
+            raise ValueError('Non-finite Horizons vector')
+        states.append({'jd':epoch,'position':values[:3],'velocity':values[3:]})
+    return states
+
+
 def parse_vectors(payload, target, jd):
-    text = payload.get('result', '')
-    if payload.get('error') or '$$SOE' not in text or '$$EOE' not in text:
-        raise ValueError('Horizons returned no state vector for this target/date')
-    segment = text.split('$$SOE', 1)[1].split('$$EOE', 1)[0].strip()
-    row = next(csv.reader(io.StringIO(segment)))
-    # VEC_TABLE=2: JD, calendar date, X, Y, Z, VX, VY, VZ, trailing comma.
-    values = [float(x.strip().replace('D', 'E')) * 1000 for x in row[2:8]]
-    if len(values) != 6 or not all(math.isfinite(x) for x in values):
-        raise ValueError('Invalid Horizons state vector')
-    return {'target': target, 'jd': jd, 'timeScale': 'UTC',
-            'frame': 'heliocentric J2000 ecliptic', 'units': 'm, m/s',
-            'position': values[:3], 'velocity': values[3:],
-            'source': 'NASA/JPL Horizons', 'apiVersion': payload.get('signature', {}).get('version')}
+    states=vector_rows(payload)
+    if len(states)!=1 or not math.isclose(states[0]['jd'],jd,rel_tol=0,abs_tol=5e-8):
+        raise ValueError('Horizons returned the wrong epoch')
+    signature=payload.get('signature',{})
+    return {'target':target,**states[0],'timeScale':'UTC',
+            'frame':'heliocentric J2000 ecliptic','units':'m, m/s',
+            'source':'NASA/JPL Horizons','apiVersion':signature.get('version') if isinstance(signature,dict) else None}
 
 
 @router.get('')
@@ -34,7 +49,7 @@ async def horizons(request: Request,
                    jd: Annotated[float, Query(ge=2378496.5, lt=2470172.5)]):
     if not math.isfinite(jd):
         raise HTTPException(422, 'Julian date must be finite')
-    key = f'{target}:{jd:.9f}:ecliptic:utc:v1'
+    key = f'{target}:{jd:.9f}:ecliptic:utc:v2'
     with connection() as db:
         row = db.execute('SELECT payload FROM horizons_cache WHERE key=? AND expires_at>?', (key, time.time())).fetchone()
     if row:
@@ -53,7 +68,7 @@ async def horizons(request: Request,
                 result = parse_vectors(response.json(), target, jd)
     except (TimeoutError, httpx.TimeoutException) as error:
         raise HTTPException(504, 'Horizons timed out; try again') from error
-    except (httpx.HTTPError, ValueError, IndexError, StopIteration) as error:
+    except (httpx.HTTPError, ValueError, IndexError, StopIteration, csv.Error) as error:
         raise HTTPException(502, 'Horizons could not supply a valid vector for this target/date') from error
     with connection() as db:
         db.execute('DELETE FROM horizons_cache WHERE expires_at<?', (time.time(),))
@@ -70,7 +85,7 @@ async def series(request: Request,
                  samples: Annotated[int, Query(ge=2, le=129)] = 33):
     if not math.isfinite(jd+days) or jd+days >= 2470172.5:
         raise HTTPException(422, 'Coverage must stay within 1800–2050')
-    key = f'series:{target}:{jd:.9f}:{days}:{samples}:utc:v1'
+    key = f'series:{target}:{jd:.9f}:{days}:{samples}:utc:v2'
     with connection() as db:
         row = db.execute('SELECT payload FROM horizons_cache WHERE key=? AND expires_at>?', (key, time.time())).fetchone()
     if row:
@@ -87,21 +102,13 @@ async def series(request: Request,
                 response = await request.app.state.http.get('https://ssd.jpl.nasa.gov/api/horizons.api', params=parameters)
                 response.raise_for_status()
                 payload = response.json()
-                segment = payload['result'].split('$$SOE', 1)[1].split('$$EOE', 1)[0].strip()
-                states = []
-                for row in csv.reader(io.StringIO(segment)):
-                    if not row:
-                        continue
-                    values = [float(x.strip().replace('D', 'E'))*1000 for x in row[2:8]]
-                    if len(values) != 6 or not all(math.isfinite(x) for x in values):
-                        raise ValueError('Invalid vector')
-                    states.append({'jd': float(row[0]), 'position': values[:3], 'velocity': values[3:]})
-                if len(states) != samples:
-                    raise ValueError('Incomplete ephemeris')
+                states=vector_rows(payload)
+                if len(states)!=samples or any(not math.isclose(state['jd'],epoch,rel_tol=0,abs_tol=5e-8) for state,epoch in zip(states,epochs)):
+                    raise ValueError('Incomplete or mismatched ephemeris')
                 result = {'target': target, 'samples': states, 'timeScale': 'UTC', 'frame': 'heliocentric J2000 ecliptic', 'units': 'm, m/s'}
     except (TimeoutError, httpx.TimeoutException) as error:
         raise HTTPException(504, 'Horizons timed out') from error
-    except (httpx.HTTPError, ValueError, KeyError, IndexError) as error:
+    except (httpx.HTTPError, ValueError, KeyError, IndexError, csv.Error) as error:
         raise HTTPException(502, 'Horizons could not supply this playback interval') from error
     with connection() as db:
         db.execute('INSERT OR REPLACE INTO horizons_cache VALUES (?,?,?)', (key, json.dumps(result), time.time()+7*86400))

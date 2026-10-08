@@ -2,11 +2,15 @@ import { Engine } from './engine.js';
 import { DAY } from './units.js';
 // Bounded prediction: return the actually reached horizon, never fabricated paths.
 export function predict(scenario,{duration=DAY*30,resolution=120,ids=[],maxMs=1800,targetId=scenario.view?.targetId}={}) {
+  if(!Number.isFinite(duration)||duration<=0||duration>DAY*365.25*1000)throw new Error('Prediction duration must be positive and at most 1,000 years');
+  if(!Number.isFinite(resolution)||resolution<8||resolution>512)throw new Error('Prediction resolution must be between 8 and 512');
+  if(!Number.isFinite(maxMs)||maxMs<=0||maxMs>12000)throw new Error('Prediction budget must be positive and at most 12 seconds');
+  if(!Array.isArray(ids)||ids.length>32||ids.some(id=>typeof id!=='string'))throw new Error('Prediction supports at most 32 body IDs');
   const engine=new Engine();engine.load({...scenario,mode:'sandbox',telemetry:[]});
   if(targetId&&ids[0]&&targetId!==ids[0]&&scenario.bodies.some(b=>b.id===targetId))engine.encounterPair=[ids[0],targetId];
   const chosen=ids.length?ids:scenario.bodies.filter(b=>!b.massless).slice(0,12).map(b=>b.id);
   const paths=Object.fromEntries(chosen.map(id=>[id,[]]));
-  const started=performance.now(),startJD=engine.s.jd,target=Math.max(1,duration);
+  const started=performance.now(),startJD=engine.s.jd,target=duration;
   let advanced=0,next=0;
   while(advanced<target && performance.now()-started<maxMs) {
     if(advanced>=next) {

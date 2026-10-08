@@ -1,3 +1,4 @@
+import {removeBody} from '../physics/experimentOps.js';
 import {defaultRocket,rocketMass} from '../physics/vehicles.js';
 import { body } from '../physics/body.js';
 import { G, AU, SOLAR_MASS, EARTH_MASS, EARTH_RADIUS, add, sub, scale, unit, norm, cross } from '../physics/units.js';
@@ -47,7 +48,7 @@ export function godAction(s,id,action,value=2) {
   if(action==='randomize')b.velocity=b.velocity.map(x=>x+(Math.random()-.5)*10000);
   if(action==='circularize')circularize(b,s.bodies,s.settings);
   if(action==='duplicate'){const clone=structuredClone(b);clone.id=uid(b.type);clone.name+=' copy';clone.position[0]+=b.radius*3;s.bodies.push(clone);s.view.selected=clone.id;}
-  if(action==='delete'){s.bodies=s.bodies.filter(x=>x.id!==id).map(x=>x.parentId===id?{...x,parentId:null}:x);s.maneuvers=s.maneuvers.filter(x=>x.bodyId!==id);s.view.selected=s.bodies[0]?.id??null;}
+  if(action==='delete'){removeBody(s,id);s.view.selected=s.bodies[0]?.id??null;}
   if(action==='freeze'){const locked=!s.bodies.every(b=>b.locked);s.bodies.forEach(b=>{b.locked=locked;});}
   if(action==='scale')s.bodies.forEach(x=>{x.position=x.position.map(x=>x*value);});
   if(action==='barycenter'){const d=diagnostics(s.bodies,s.settings);s.bodies.forEach(x=>{x.position=sub(x.position,d.center);x.velocity=sub(x.velocity,d.momentum.map(v=>d.mass?v/d.mass:0));});}

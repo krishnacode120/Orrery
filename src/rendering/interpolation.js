@@ -4,11 +4,12 @@ export class RenderInterpolator{
  constructor(){this.current=null;this.previous=null;this.received=0;this.interval=1/30;this.revision=null;this.old=new Map();}
  publish(s,revision,now){
   if(this.revision!==revision||!this.current){this.previous=s;this.current=s;this.received=now;this.revision=revision;this.old=new Map(s.bodies.map(b=>[b.id,b]));return;}
-  if(s.jd===this.current.jd){this.current=s;return;}
+  if(s.jd===this.current.jd){if(s.bodies!==this.current.bodies){this.previous=s;this.old=new Map(s.bodies.map(b=>[b.id,b]));this.received=now;}this.current=s;return;}
   this.interval=Math.max(1/144,Math.min(.25,now-this.received));this.previous=this.current;this.old=new Map(this.previous.bodies.map(b=>[b.id,b]));this.current=s;this.received=now;
  }
  sample(s,{revision,now,paused=false,reducedMotion=false}){
-  if(!this.current||this.revision!==revision||paused||reducedMotion||s.bodies!==this.current.bodies)return s;
+  if(!this.current||this.revision!==revision||s.bodies!==this.current.bodies)return s;
+  if(paused||reducedMotion){if(this.previous.bodies!==this.current.bodies){this.previous=this.current;this.old=new Map(this.current.bodies.map(b=>[b.id,b]));}this.received=now;return s;}
   const t=Math.max(0,Math.min(1,(now-this.received)/this.interval)),old=this.old;
   if(t===1)return s;
   const bodies=s.bodies.map(b=>{

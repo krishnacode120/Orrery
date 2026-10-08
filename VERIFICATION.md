@@ -1,12 +1,12 @@
-# Orrery verification — 2026-10-08
+# Orrery verification — 2026-10-09
 
 ## Automated verification
 
 | Check | Result |
 | --- | --- |
-| `npm.cmd test -- --reporter=verbose --silent=false` | 105 passed in 12 files |
-| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | 35 passed |
-| `npm.cmd run build` | Passed; 1,131 modules |
+| `npm.cmd test -- --reporter=verbose --silent=false` | 121 passed in 14 files |
+| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | 52 passed |
+| `npm.cmd run build` | Passed; 1,133 modules |
 | Circular orbit over 1,000 periods: max relative energy drift | 9.063741269683645e-8 |
 | Verlet signed nonuniform forward/reverse sequence | Passed |
 | Mercury 1PN advance vs analytic | 5.018828309921192e-7 vs 5.018812201873169e-7 rad/orbit |
@@ -25,19 +25,23 @@ What-If tests establish baseline immutability, branch-local undo, Apply/Undo, ne
 
 Existing tests retain Kepler/JD initialization, integrators, rejected adaptive trials, tree/direct agreement, massless non-sourcing, orbital elements, collision conservation, tidal debris, adjusted drift baselines, black-hole absorption, wormholes, cloned prediction, bounded Horizons interpolation, fuel-aware burns, moving-primary launch constraints, and scenario/worker contracts.
 
+## Bug review
+
+The [bug-review report](docs/bug-review.md) records reproduced failures and their fixes. Sixteen new frontend tests cover revision ownership after failed/stalled worker RPCs, shared-buffer copying, analysis cancellation, non-sourcing debris at the massive-body cap, disabled-gravity behavior, wormhole deletion, invalid prediction inputs, exact burn boundaries, pause/resume interpolation, malformed imports, empty HTTP responses, IndexedDB identity/deletion/abort behavior, and experiment recovery. Seventeen backend cases cover malformed view/ephemeris payloads, duplicate maneuver IDs, invalid/wrong-epoch Horizons responses, ordered series coverage, and CORS on limit errors. Existing Phase 1 API round trips still pass without injected optional arrays.
+
 ## Performance
 
 Final CPU benchmark on this machine, during the regression suite with backend verification and production compilation running concurrently:
 
 | Particles + 12 sources | Steps/second |
 | --- | --- |
-| 1,000 | 210.6 |
-| 5,000 | 70.9 |
-| 10,000 | 44.6 |
+| 1,000 | 106.5 |
+| 5,000 | 39.1 |
+| 10,000 | 23.7 |
 
 These are integration rates, not render frame rates. Results vary with concurrent load. Prior browser observations in small scenes were approximately 34–58 FPS; they do not establish the frame rate of this camera upgrade or a universal 5,000-particle / 60 FPS guarantee.
 
-Production output: main chunk 513.82 kB / 171.55 kB gzip, lazy Scene chunk 1,015.01 kB / 273.44 kB gzip, physics worker 88.84 kB. Vite reports the large rendering chunk. Mission control and optional tools remain lazy chunks.
+Production output: main chunk 518.19 kB / 172.99 kB gzip, lazy Scene chunk 1,015.28 kB / 273.49 kB gzip, physics worker 90.65 kB. Vite reports the large rendering chunk. Mission control and optional tools remain lazy chunks.
 
 ## Interactive verification status
 
@@ -82,6 +86,6 @@ Then exercise:
 - Black-hole lensing is procedural, not full-scene geodesic tracing. Wormholes are experimental.
 - Consumed fuel, dissipation, staging and collisions cannot be undone by negative time.
 - Extremely rapid body motion can engulf a camera between frames; collision protection then projects to the permitted boundary. Absolute SI precision is bounded by Float64.
-- Backend tests emit an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 35 tests pass.
+- Backend tests emit an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 52 tests pass.
 
 Screenshots in docs/screenshots document earlier inspected UI states. Passing tests establishes the listed invariants, not certification of every feature request.

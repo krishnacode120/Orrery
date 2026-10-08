@@ -4,7 +4,7 @@ import { source, debrisCapacity, makeDebris, replaceBodies } from './debris.js';
 
 export { rocheLimit } from './orbital.js';
 export function disruptTides(bodies,settings,emit=()=>{},serial=0) {
-  if(!settings.roche)return bodies;
+  if(!settings.roche||(settings.gMultiplier??1)<=0)return bodies;
   const candidates=bodies.filter(b=>source(b)&&!b.disrupted&&!b.locked);
   let events=0;
   for(const b of candidates) {

@@ -4,7 +4,8 @@ import { MAX_BODIES, MAX_MASSIVE } from './limits.js';
 export const source=b=>!b.massless && b.mass>0;
 export function debrisCapacity(bodies,removed) {
   const ids=new Set(removed.map(b=>b.id)),remaining=bodies.filter(b=>!ids.has(b.id));
-  return Math.max(0,Math.min(64,MAX_BODIES-remaining.length,MAX_MASSIVE-remaining.filter(source).length));
+  const sourceCapacity=removed.some(source)?MAX_MASSIVE-remaining.filter(source).length:64;
+  return Math.max(0,Math.min(64,MAX_BODIES-remaining.length,sourceCapacity));
 }
 
 // Resolved massive chunks retain the parent's total mass and COM momentum.
@@ -23,7 +24,7 @@ export function makeDebris(seed,count,direction,speed,serial,existing,options={}
     let id=i===0?seed.id:'debris-'+serial+'-'+i;
     while(i!==0 && ids.has(id))id+='x';ids.add(id);
     return {...seed,id,name:seed.name+' debris '+(i+1),type:'asteroid',
-      mass:seed.mass*weights[i]/sum,radius:seed.radius*Math.cbrt(weights[i]/sum),density:null,locked:false,massless:false,
+      mass:seed.mass*weights[i]/sum,radius:seed.radius*Math.cbrt(weights[i]/sum),density:null,locked:false,massless:!!seed.massless,
       luminosity:0,atmosphere:null,rings:null,blackHole:null,wormhole:null,rocket:null,spacecraft:null,material:'debris',disrupted:true,
       // Debris has no unresolved solid-body collision/tidal model in this phase.
       collisionMode:'none',

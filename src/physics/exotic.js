@@ -16,7 +16,7 @@ export function extremeEvents(bodies,settings,previous,dt,jd,emit) {
     for(const b of [...bodies]) {
       if(b.id===hole.id || b.type==='wormholeMouth'||!bodies.includes(b))continue;
       const radius=schwarzschild(hole.mass,settings);
-      if(!sphereContact({...hole,radius},{...b,radius:0},previous))continue;
+      if(radius<=0||!sphereContact({...hole,radius},{...b,radius:0},previous))continue;
       let grown=source(b)?mergedBody(hole,b):{...hole};
       grown={...grown,id:hole.id,name:hole.name,type:'blackHole',parentId:hole.parentId,
         blackHole:{...hole.blackHole,accretedMass:(hole.blackHole?.accretedMass??0)+(source(b)?b.mass:0)}};
