@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useState,useEffect} from 'react';
 import {useSimStore} from '../store/useSimStore.js';
 import {editElements} from '../store/actions.js';
 import {derived} from '../physics/body.js';
@@ -9,6 +9,7 @@ import {NumberField,VectorField,Select,Toggle,Readouts,fmt} from './Fields.jsx';
 import {Field} from './styles.js';
 export default function Inspector({run}) {
  const sim=useSimStore(),s=sim.scenario,b=s.bodies.find(x=>x.id===s.view.selected),[meta,setMeta]=useState(null);
+ useEffect(()=>setMeta(null),[b?.id]);
  if(!b)return <small>Select an object in the viewport or object list.</small>;
  const disabled=s.mode!=='sandbox',u=s.view.units,d=derived(b,s.settings),orbit=derivedOrbit(b,s.bodies,s.settings),o=orbit.elements;
  const edit=fn=>run(()=>sim.edit(s=>fn(s.bodies.find(x=>x.id===b.id))));

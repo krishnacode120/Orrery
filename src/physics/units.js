@@ -17,7 +17,8 @@ export const UNITS = { kg:1, 'M⊕':EARTH_MASS, 'M☉':SOLAR_MASS, m:1, km:1000,
   s:1, d:DAY, yr:YEAR, rad:1, deg:Math.PI/180 };
 export const J2000 = 2451545;
 export const MIN_JD = 2378496.5; // 1800-01-01 UTC
-export const MAX_JD = 2470172.5; // 2051-01-01 UTC, exclusive
+export const MAX_JD = 2470172.5; // 2051-01-01 UTC, exclusive: approximate Reality table
+export const SANDBOX_MAX_JD = 2816787.5; // 3000-01-01 UTC, exclusive: integrated Sandbox
 
 export function julianDate(date = new Date()) {
   const ms = new Date(date).getTime();

@@ -9,6 +9,9 @@ import { connectWorker } from './physics/workerApi.js';
 import { api, localScenario } from './persistence.js';
 import { usePrediction } from './usePrediction.js';
 import {useReplay} from './useReplay.js';
+import {useWhatIf} from './useWhatIf.js';
+import {useWhatIfStore} from './store/useWhatIfStore.js';
+import {localExperiment} from './persistence.js';
 
 class SceneBoundary extends Component {
   state = { error: null };
@@ -19,7 +22,7 @@ class SceneBoundary extends Component {
 }
 
 export default function App() {
-  usePrediction();useReplay();
+  usePrediction();useReplay();useWhatIf();
   const panel=useSimStore(state=>!!state.scenario.view.panel),ui=useUIStore();
   const [ready,setReady] = useState(false), [storageError,setStorageError] = useState('');
   useEffect(() => {
@@ -49,7 +52,7 @@ export default function App() {
     const timer=setInterval(async()=>{
       if(pending)return;
       pending=true;
-      try { await localScenario(useSimStore.getState().scenario); }
+      try { const experiment=useWhatIfStore.getState(),scenario=useSimStore.getState().scenario;await localScenario(experiment.active?experiment.original.scenario:scenario);if(experiment.active)await localExperiment({baseline:experiment.baseline,experiment:scenario,original:experiment.original.scenario}); }
       catch(error) { setStorageError(`Autosave unavailable: ${error.message}`); }
       finally { pending=false; }
     },5000);

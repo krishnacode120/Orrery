@@ -3,6 +3,7 @@ import {systemCamera} from '../navigation/actions.js';
 import {useCameraStore} from '../store/useCameraStore.js';
 import {useSimStore} from '../store/useSimStore.js';
 import {useUIStore} from '../store/useUIStore.js';
+import {useWhatIfStore} from '../store/useWhatIfStore.js';
 import {scalePreset} from '../components/viewSpace.js';
 import {measure,sphereOfInfluence,transferPlan} from '../physics/transfers.js';
 import {deltaVBudget} from '../physics/flight.js';
@@ -18,8 +19,8 @@ export function systemView(){systemCamera();}
 export function navigation(direction){useCameraStore.getState().travel(direction);}
 export function LayoutControls(){
  const sim=useSimStore(),s=sim.scenario,ui=useUIStore(),camera=useCameraStore(),[open,setOpen]=useState(false);
- const choose=layout=>{ui.setLayout(layout);const panel={physics:'inspector',mission:'mission',satellite:'mission',god:'god'}[layout];if(panel)sim.configureView({panel});};
- return <><div className="workspace-switch"><button aria-label="Navigate back" disabled={camera.index<=0} onClick={()=>navigation(-1)}>←</button><button aria-label="Navigate forward" disabled={camera.index>=camera.history.length-1} onClick={()=>navigation(1)}>→</button><select aria-label="Workspace layout" value={ui.layout} onChange={e=>choose(e.target.value)}>{['explore','physics','mission','satellite','god','minimal','presentation','cinema'].map(x=><option key={x}>{x}</option>)}</select><button onClick={()=>setOpen(!open)} aria-expanded={open}>View</button><button title="Hide all interface (H)" onClick={ui.toggleInterface}>Hide UI <kbd>H</kbd></button></div>
+ const choose=layout=>{if(layout==='whatif'){try{useWhatIfStore.getState().begin();ui.workspace({right:true});sim.configureView({panel:'whatif'});}catch(e){sim.fail(e.message);}return;}ui.setLayout(layout);const panel={physics:'inspector',mission:'mission',satellite:'mission',god:'god'}[layout];if(panel)sim.configureView({panel});};
+ return <><div className="workspace-switch"><button aria-label="Navigate back" disabled={camera.index<=0} onClick={()=>navigation(-1)}>←</button><button aria-label="Navigate forward" disabled={camera.index>=camera.history.length-1} onClick={()=>navigation(1)}>→</button><select aria-label="Workspace layout" value={ui.layout} onChange={e=>choose(e.target.value)}>{['explore','whatif','physics','mission','satellite','god','minimal','presentation','cinema'].map(x=><option key={x}>{x}</option>)}</select><button onClick={()=>setOpen(!open)} aria-expanded={open}>View</button><button title="Hide all interface (H)" onClick={ui.toggleInterface}>Hide UI <kbd>H</kbd></button></div>
  {open&&<section className="view-menu" aria-label="Visibility controls"><div className="row spread"><strong>Workspace</strong><button onClick={()=>setOpen(false)}>×</button></div>{[['top','Top controls'],['left','Object navigator'],['right','Inspector'],['bottom','Time / diagnostics'],['rail','Tool rail'],['hud','Viewport HUD']].map(([k,label])=><Toggle key={k} label={label} value={ui[k]} commit={v=>ui.workspace({[k]:v})}/>)}<Toggle label="Labels" value={s.view.labels} commit={x=>sim.configureView({labels:x})}/><Toggle label="Orbit paths" value={s.view.orbits} commit={x=>sim.configureView({orbits:x})}/><button onClick={()=>choose('explore')}>Restore Explore layout</button></section>}
  </>;
 }

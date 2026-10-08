@@ -66,7 +66,7 @@ export function spacecraftAt(primary,orbit={},index=0,jd=julianDate()) {
 }
 export const DEFAULT_VIEW={quality:'auto',exaggeration:1500,scale:'system',cameraMode:'orbit',labels:true,
   bloom:true,orbits:true,trails:true,vectors:false,markers:true,plane:false,links:false,showHill:false,showRoche:false,
-  selected:'earth',panel:null,workspaceVersion:4,scaleMode:'visibility',realDistances:true,realRadii:false,distanceScale:1,planetScale:1500,moonScale:1500,spacecraftScale:10000,trailScale:1,labelScale:1,showMoons:true,showSOI:false,predictionPaths:true,transferPath:true,autoArrival:true,gravityGrid:'off',showAcceleration:false,showBarycenter:false,miniMap:false,miniMapMode:'system',pip:false,units:{mass:'kg',length:'km',radius:'km',velocity:'km/s',time:'d',angle:'deg'},
+  selected:'earth',panel:null,workspaceVersion:4,smoothMotion:true,pauseVisualEffects:true,scaleMode:'visibility',realDistances:true,realRadii:false,distanceScale:1,planetScale:1500,moonScale:1500,spacecraftScale:10000,trailScale:1,labelScale:1,showMoons:true,showSOI:false,predictionPaths:true,transferPath:true,autoArrival:true,gravityGrid:'off',showAcceleration:false,showBarycenter:false,miniMap:false,miniMapMode:'system',pip:false,units:{mass:'kg',length:'km',radius:'km',velocity:'km/s',time:'d',angle:'deg'},
   navigation:{...CAMERA_DEFAULTS},timeBookmarks:[],showLagrange:false,terminator:false,textScale:1,highContrast:false,reducedMotion:false,camera:null,keyframes:[],savedCameras:[],exposure:1};
 export function baseScenario(name='Solar system') {
   const jd=julianDate();

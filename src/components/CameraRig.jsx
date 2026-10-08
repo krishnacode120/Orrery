@@ -9,13 +9,14 @@ import {NavigationController} from '../navigation/controller.js';
 import {CAMERA_DEFAULTS,cameraMode,toRender,toSI,validPose,surfacePosition,lookQuaternion,barycenter} from '../navigation/model.js';
 import {setRenderFrame,getRenderFrame,clearRenderFrame} from '../navigation/renderFrame.js';
 import {viewSpace,displayRadius} from './viewSpace.js';
+import {renderScenario} from '../rendering/frame.js';
 import {schwarzschild} from '../physics/exotic.js';
 import {AU,add,sub,scale,norm,unit} from '../physics/units.js';
 const blocked=e=>e.target?.closest?.('input,textarea,select,[contenteditable=true],[role=dialog]');
 export default function CameraRig(){
  const {camera,gl,size}=useThree(),controller=useRef(new NavigationController()),orbit=useRef(null),proxy=useRef(new PerspectiveCamera()),keys=useRef(new Set()),look=useRef([0,0]),drag=useRef(null),last=useRef({revision:-1,mode:null,scale:null,command:0,focus:null,sample:0,persist:0}),programmatic=useRef(false);
  const context=()=>{
-  const s=useSimStore.getState().scenario,sp=viewSpace(s),bodies=s.bodies.filter(b=>!b.massless||b.rocket||b.spacecraft);
+  const s=renderScenario(useSimStore.getState().scenario),sp=viewSpace(s),bodies=s.bodies.filter(b=>!b.massless||b.rocket||b.spacecraft);
   return {bodies,jd:s.jd,scale:s.view.scale,keyframes:s.view.keyframes,reducedMotion:s.view.reducedMotion,aspect:size.width/size.height,
    radiusFor:b=>displayRadius(b.type==='blackHole'?{...b,radius:schwarzschild(b.mass,s.settings)}:b,s,sp)*sp.unit/sp.distanceScale};
  };

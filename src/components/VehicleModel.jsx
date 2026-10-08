@@ -1,4 +1,7 @@
-import {useMemo} from 'react';
+import {useMemo,useRef} from 'react';
+import {useFrame} from '@react-three/fiber';
+import {useSimStore} from '../store/useSimStore.js';
+import {renderScenario} from '../rendering/frame.js';
 import {Vector3,Quaternion,DoubleSide} from 'three';
 import {unit} from '../physics/units.js';
 function SolarWing({side}) {
@@ -10,10 +13,11 @@ function Engine({position,size=.22}){
  return <group position={position}><mesh><cylinderGeometry args={[size*.5,size, .45,20,1,true]}/><meshStandardMaterial color="#4e5054" metalness={.85} roughness={.4} side={DoubleSide}/></mesh><mesh position={[0,-.22,0]} rotation={[Math.PI/2,0,0]}><torusGeometry args={[size,.018,6,24]}/><meshStandardMaterial color="#bbb1a2" metalness={.8}/></mesh></group>;
 }
 export default function VehicleModel({rocket,radius,body}) {
- const attitude=body.rocket?.orientation??body.spacecraft?.orientation??unit(body.velocity);
+ const group=useRef(),stage=body.metadata?.separatedStage,attitude=body.rocket?.orientation??body.spacecraft?.orientation??stage?.orientation??unit(body.velocity);
+ useFrame(()=>{const b=renderScenario(useSimStore.getState().scenario).bodies.find(b=>b.id===body.id);if(!b||!group.current)return;const axis=b.rocket?.orientation??b.spacecraft?.orientation??b.metadata?.separatedStage?.orientation??unit(b.velocity);group.current.quaternion.setFromUnitVectors(new Vector3(0,1,0),new Vector3(axis[0],axis[2],-axis[1]).normalize());const roll=b.rocket?.roll??b.spacecraft?.roll??0;group.current.quaternion.multiply(new Quaternion().setFromAxisAngle(new Vector3(0,1,0),roll*Math.PI/180));});
  const q=new Quaternion().setFromUnitVectors(new Vector3(0,1,0),new Vector3(attitude[0],attitude[2],-attitude[1]).normalize());
  const r=body.rocket,upper=!!r&&r.stage>0,engineOn=r?.engineOn&&r.actualThrust>0;
- return <group quaternion={q} scale={radius}>{rocket?<group position={[0,upper?-1:0,0]}>
+ return <group ref={group} quaternion={q} scale={radius}>{stage?<group><mesh position={[0,-1.1,0]}><cylinderGeometry args={[.51,.51,3.1,32]}/><meshStandardMaterial color="#c6c9c8" metalness={.4} roughness={.5}/></mesh><Engine position={[0,-2.9,0]}/></group>:rocket?<group position={[0,upper?-1:0,0]}>
  {!upper&&<group><mesh position={[0,-1.1,0]}><cylinderGeometry args={[.51,.51,3.1,48]}/><meshStandardMaterial color="#d6d7d4" metalness={.32} roughness={.48}/></mesh>
  {[-2.4,-1.55,-.55,.35].map(y=><mesh key={y} position={[0,y,0]}><cylinderGeometry args={[.513,.513,.032,48]}/><meshStandardMaterial color="#7c8188" metalness={.55} roughness={.45}/></mesh>)}
  <mesh position={[0,-2.53,0]}><cylinderGeometry args={[.515,.52,.28,48]}/><meshStandardMaterial color="#252b33" metalness={.7}/></mesh>

@@ -1,6 +1,6 @@
 # Scenario schema version 2
 
-Top-level fields: version, name, mode, jd, bodies, settings, view, tags, description, provenance, maneuvers, stations, telemetry, mission, events, eventSerial, and optional ephemeris.
+Top-level fields: version, name, mode, jd, bodies, settings, view, tags, description, provenance, maneuvers, stations, telemetry, mission, events, eventSerial, and optional ephemeris, branch and experimentEvents.
 
 Body data preserves all original Phase 1 fields. New fields include visible, metadata, collisionMode, disrupted, blackHole, wormhole, rocket, spacecraft, acceleration and portalCooldownJD. State is always SI; spin period is seconds. Display-unit preferences do not change stored numbers.
 
@@ -15,6 +15,8 @@ rocket stages and guidance state, spacecraft power/configuration, maneuvers, sta
 Version 1 migration fills missing version 2 fields and new settings/body defaults while preserving existing vectors, masses, clock, and supported fields. Negative zero is normalized because JSON has no signed-zero representation. Unknown schema versions are rejected. The backend accepts both versions for compatibility, and /api/migrate explicitly upgrades a document.
 
 Limits are enforced at import/API boundaries. Invalid vectors, duplicate IDs, dangling/self parents, non-finite nested numbers, malformed vehicle configurations, excessive collections and unsupported modes fail visibly. JSON import is replacement, so it is undoable through scenario history.
+
+Optional branch contains id, parentId, name and epochJD. experimentEvents contains up to 256 uniquely named events with jd, typed operation, executed, actualJD and optional failed reason. Operations support scalar/vector edits, body creation/deletion, burns, ignition/cutoff, staging, collision trigger and fragmentation. Version 1/2 imports without these fields receive an empty schedule. Sandbox epochs and executed event dates can extend through 2999; Reality initialization retains the 2050 boundary. View.smoothMotion and pauseVisualEffects are visual preferences; rocket.separationSpeed is a physical relative separation impulse speed in m/s. Undefined orbital telemetry is null, never NaN or Infinity.
 
 Reverse stepping is not an undo log. Undo/redo operates on supported editing actions and scenario replacements; physical collision/staging evolution belongs to worker simulation state. When topology differs, history restores the saved scenario snapshot to prevent unsafe index-based edits.
 

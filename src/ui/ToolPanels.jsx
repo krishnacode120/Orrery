@@ -1,3 +1,4 @@
+import WhatIf from './WhatIf.jsx';
 import {ObservationTools,PlanetComparison,RendezvousTools,ReplayTools} from './ScienceTools.jsx';
 import {MissionPlanner,GodTools,Measurement,CollisionLab} from './ExplorationTools.jsx';
-export default function ToolPanels({name,run}){const Panel={planner:MissionPlanner,god:GodTools,measure:Measurement,collision:CollisionLab,observe:ObservationTools,compare:PlanetComparison,rendezvous:RendezvousTools,replay:ReplayTools}[name];return Panel?<Panel run={run}/>:null;}
+export default function ToolPanels({name,run}){const Panel={whatif:WhatIf,planner:MissionPlanner,god:GodTools,measure:Measurement,collision:CollisionLab,observe:ObservationTools,compare:PlanetComparison,rendezvous:RendezvousTools,replay:ReplayTools}[name];return Panel?<Panel run={run}/>:null;}

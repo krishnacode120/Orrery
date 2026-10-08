@@ -11,7 +11,7 @@ export function replayFrame(index){
  useReplayStore.setState({index,playback:true});
 }
 export function enterReplay(){
- const sim=useSimStore.getState(),replay=useReplayStore.getState();if(!replay.frames.length)throw new Error('Record or import snapshots first');
+ const sim=useSimStore.getState(),replay=useReplayStore.getState();if(sim.experimentActive)throw new Error('Exit or apply What-If before opening replay.');if(!replay.frames.length)throw new Error('Record or import snapshots first');
  if(!replay.playback)useReplayStore.setState({live:{scenario:structuredClone(sim.scenario),paused:sim.paused},recording:false});
  replayFrame(replay.index);
 }

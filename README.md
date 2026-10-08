@@ -39,6 +39,7 @@ Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optio
 - **Sandbox** snapshots the current position AND velocity and evolves gravitational dynamics. Body edits are applied at the next worker revision.
 - **Inspector** edits mass, radius, density, state vectors, bound orbital elements, spin, appearance, trails, constraints, collision overrides, and metadata. Per-field units and global preferences preserve SI internally.
 - **Create objects** place/throw objects in the ecliptic plane, spawn extreme objects, and brush rings, streams, fields or clouds. Inspector actions include circularize, duplicate, moon, binary companion, fragment, mass/radius scaling, velocity operations, barycenter centering, and parameterized supernova.
+- **What-If laboratory** preserves the original scenario while an editable branch evolves. Compare matched-epoch cloned simulations, schedule future changes, save child scenarios, preview bounded random experiments and export measured reports. See the [What-If guide](docs/what-if.md) and [motion architecture](docs/motion.md).
 - **Prediction** integrates a cloned state in a separate worker. Duration, resolution and mass preview are configurable. Dashed paths include planned burns. The displayed horizon is the horizon actually computed within the budget.
 - **Scenario library** includes 37 built-in examples, searchable categories/tags, saved/recent local snapshots, shared-ID loading, import/export, and backend sharing.
 - **Simulation settings** select integrator, solver, adaptive controls, collisions, GR approximation, units, visual quality, accessibility, cameras and capture.
@@ -96,7 +97,9 @@ Bundled CC BY 4.0 planet maps, day/night shading, clouds, atmospheric rims, sola
 
 Particles/fragments use one instanced mesh; background stars use one point draw. Low/Medium/High/Ultra/Auto quality adjusts pixel ratio and bloom; low quality bounds trails and sphere detail. FPS, frame interval, physics batch time, worker throughput, counts, draw calls and trail points are exposed. GPU compute gravity is not enabled: the supported physics path is CPU direct/tree, with GPU-assisted instanced rendering.
 
-Limits: **20,000 bodies**, **512 massive sources**, **64 fragments per event**, **200 retained events**, **2,400 telemetry samples**, **32 MiB scenario payloads**. Dense source systems, many close encounters, portal rendering, prediction and recording reduce throughput. The clock slows to actual integrated time when the worker's 12 ms / 512-substep budget is reached. No unconditional 60 FPS claim is made.
+Motion interpolates completed worker publications for rendering only; telemetry and editing stay authoritative. Vehicle attitudes use quaternion interpolation, physical stages remain independent bodies, and progressive trail histories use capped circular buffers. Pause settles on the completed worker boundary; it does not roll back a batch already in flight.
+
+Limits: **20,000 bodies**, **512 massive sources**, **64 fragments per event**, **200 retained events**, **2,400 telemetry samples**, **32 MiB scenario payloads**. Experiment comparison is limited to 1,000 bodies per branch, 32 paths and a 12-second worker budget; longer horizons may return partial results. Sandbox epochs support 1800–2999 while approximate Reality retains 1800–2050 coverage. Dense source systems, many close encounters, portal rendering, prediction and recording reduce throughput. The clock slows to actual integrated time when the worker's 12 ms / 512-substep budget is reached. No unconditional 60 FPS claim is made.
 
 ## Cameras and capture
 
@@ -139,7 +142,7 @@ Mission replay records complete physical snapshots with fuel, stages and events.
 
 ## Persistence and security
 
-IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary.
+IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary. Experiment branches add optional parent metadata and up to 256 scheduled changes. While What-If is active, root autosave preserves the original scenario and a separate key autosaves the experiment session.
 
 Shared scenarios use unguessable read IDs and separate edit-key capabilities. The URL permits reading; updating, deleting, metadata editing and camera writes require X-Edit-Key. No user authentication is introduced. The in-memory rate limiter is suitable for one API process; deploy an edge/shared limiter before scaling to multiple processes.
 
@@ -169,7 +172,7 @@ npm.cmd test -- --reporter=verbose --silent=false
 npm.cmd run build
 ```
 
-See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist.
+See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist. The [upgrade prompt extension](docs/what-if-upgrade-prompt.md) retains the What-If/motion requirements separately from the implementation and verification claims.
 
 Detailed references: [camera navigation](docs/camera-navigation.md), [replay](docs/replay-schema.md), [physics](docs/physics.md), [architecture](docs/architecture.md), [rendering](docs/rendering.md), [missions](docs/missions.md), [API](docs/api.md), [scenario schema](docs/scenario-schema.md).
 

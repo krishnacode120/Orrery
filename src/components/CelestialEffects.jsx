@@ -4,9 +4,10 @@ import {Color,Vector3,DoubleSide,BackSide,AdditiveBlending} from 'three';
 import {useSimStore} from '../store/useSimStore.js';
 import {AU,sub} from '../physics/units.js';
 import {vertex} from '../shaders/materials.js';
+import {renderScenario} from '../rendering/frame.js';
 function useSunlight(body,extra){
  const uniforms=useMemo(()=>({...extra,lightDirection:{value:new Vector3(1,0,0)}}),[body.id,body.color,body.radius,body.atmosphere?.color,body.rings?.opacity]);
- useFrame(({camera})=>{const s=useSimStore.getState().scenario,star=s.bodies.find(x=>x.type==='star'&&x.id!==body.id),b=s.bodies.find(x=>x.id===body.id)??body;
+ useFrame(({camera})=>{const s=renderScenario(useSimStore.getState().scenario),star=s.bodies.find(x=>x.type==='star'&&x.id!==body.id),b=s.bodies.find(x=>x.id===body.id)??body;
  const light=star?sub(star.position,b.position):[AU,AU*.2,0];uniforms.lightDirection.value.set(light[0],light[2],-light[1]).transformDirection(camera.matrixWorldInverse);});
  return uniforms;
 }

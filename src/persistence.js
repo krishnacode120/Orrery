@@ -21,6 +21,10 @@ export async function localScenario(value) {
     });
   } finally { db.close(); }
 }
+export async function localExperiment(value) {
+ const db=await database();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('scenarios',value?'readwrite':'readonly'),store=tx.objectStore('scenarios');let record=value;if(value){record={baseline:validateScenario(value.baseline),experiment:validateScenario(value.experiment),original:validateScenario(value.original)};if(JSON.stringify(record).length>64*1024*1024)throw new Error('Experiment session exceeds 64 MiB');}const request=value?store.put(record,'whatif-session'):store.get('whatif-session');tx.oncomplete=()=>resolve(value?undefined:request.result);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error??new Error('Experiment persistence aborted'));});}finally{db.close();}
+}
+
 export async function api(path, options = {}) {
   const response = await fetch(`/api${path}`, { ...options,
     headers: { 'Content-Type':'application/json', ...options.headers }, signal: AbortSignal.timeout(30000) });

@@ -23,3 +23,5 @@ export function travel(state, direction) {
   return applyPatches(state, direction === 'undo' ? item.inverse : item.forward);
 }
 export const historyCounts = () => ({ undoCount: undo.length, redoCount: redo.length });
+export function checkpointHistory(){return {undo:[...undo],redo:[...redo]};}
+export function restoreHistory(snapshot){undo.splice(0,undo.length,...(snapshot?.undo??[]));redo.splice(0,redo.length,...(snapshot?.redo??[]));return historyCounts();}

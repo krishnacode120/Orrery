@@ -23,6 +23,8 @@ FastAPI OpenAPI: /docs. SQLite file is configured with ORRERY_DB. CORS origins: 
 
 Horizons uses CENTER=500@10, REF_PLANE=ECLIPTIC, REF_SYSTEM=ICRF, TIME_TYPE=UT, VEC_CORR=NONE and KM-S upstream, converted to meters/m/s. Target accepts numeric IDs only. A fixed upstream address prevents user-controlled proxy destinations. Timeout, application errors, malformed/incomplete vectors and dates outside 1800–2050 produce explicit errors.
 
+Scenario payloads may include optional branch metadata and up to 256 typed experimentEvents. The existing create/read/update routes preserve them; no separate simulation service runs on the backend. Missing scalar operation modes default to set; missing position/velocity/burn modes default to add. Burns are additive impulses. Invalid future operations are structurally rejected by the API or rejected atomically at local execution when their target no longer exists. Sandbox snapshots support 1800–2999; approximate Reality and Horizons endpoints retain 1800–2050 coverage.
+
 Scenario metadata/search is capability-scoped. The API does not publish a browsable index of all users' snapshots. A share URL's ID permits reading camera and telemetry data in that snapshot. Edit keys are returned only on creation; the database stores hashes and checks them in constant time.
 
 For internet deployment use HTTPS, a reverse proxy, backups, a shared/edge rate limiter if running multiple processes, and an appropriate retention policy. This repository does not provide multi-user accounts or confidential sharing.

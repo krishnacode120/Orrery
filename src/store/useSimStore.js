@@ -28,7 +28,7 @@ export const useSimStore = create((set, get) => ({
     const next = editWithHistory(get().scenario, apply);
     set({ scenario: next, revision: get().revision+1, stats: null, error: null, prediction:null, ...historyCounts() });
   },
-  replace(s) { const next = validateScenario(s); get().edit(() => next); set({ paused: true });useCameraStore.getState().request('load'); },
+  replace(s) { if(get().experimentActive)throw new Error('Apply or exit What-If before loading another scenario.');const next = validateScenario(s); get().edit(() => next); set({ paused: true });useCameraStore.getState().request('load'); },
   undo() { if(get().replayActive)return get().fail('Return to Live before Undo.');set({ scenario: travel(get().scenario,'undo'), revision: get().revision+1,
     stats: null, paused: true, ...historyCounts() }); },
   redo() { if(get().replayActive)return get().fail('Return to Live before Redo.');set({ scenario: travel(get().scenario,'redo'), revision: get().revision+1,
@@ -51,13 +51,14 @@ export const useSimStore = create((set, get) => ({
   },
   togglePause() { if(get().replayActive){const replay=useReplayStore.getState();useReplayStore.setState({playing:!replay.playing});return;}set({ paused: !get().paused }); },
   step() { if(get().replayActive)return get().fail('Use the recorded-frame scrubber to step replay.');set({ paused: true, stepRequest: true }); },
-  frame({ jd, stats, state, render, transport, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry }) {
+  frame({ jd, stats, state, render, transport, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry, experimentEvents, settings }) {
     const previousEventSerial=get().scenario.eventSerial??0;
     const metadata=bodies??get().scenario.bodies;
     const updates=new Map(dynamic.map(b=>[b.id,b]));
     if(metadata.length!==count || state.length!==count*6)throw new Error('Incomplete worker frame');
     set({ scenario: { ...get().scenario, jd, events:events??get().scenario.events, eventSerial,
       maneuvers:maneuvers??get().scenario.maneuvers,telemetry:telemetry??get().scenario.telemetry,
+      experimentEvents:experimentEvents??get().scenario.experimentEvents,settings:settings??get().scenario.settings,
       bodies: metadata.map((b,i) => ({ ...b,...updates.get(b.id),
       position: Array.from(state.subarray(i*6,i*6+3)), velocity: Array.from(state.subarray(i*6+3,i*6+6)) })) },
       stats, render, transport, stepRequest: false });

@@ -9,12 +9,14 @@ export function rotateAxis(vector,axis,angle) {
   return add(add(scale(vector,c),scale(cross(k,vector),s)),scale(k,kv*(1-c)));
 }
 export function earthFixed(position,jd) {
+  if(!norm(position))return {latitude:null,longitude:null};
   const r=rotateAxis(position,EARTH_AXIS,-(jd-J2000)*DAY*EARTH_ROTATION);
   const equatorial=[r[0],r[1]*EARTH_AXIS[2]-r[2]*EARTH_AXIS[1],dot(r,EARTH_AXIS)];
   return {latitude:Math.asin(clamp(equatorial[2]/norm(r),-1,1))*180/Math.PI,
     longitude:Math.atan2(equatorial[1],equatorial[0])*180/Math.PI};
 }
 export function bodyFixed(position,primary,jd){
+ if(!norm(position))return {latitude:null,longitude:null};
  if(primary.id==='earth')return earthFixed(position,jd);
  const axis=unit(primary.spin.axis),r=rotateAxis(position,axis,-(jd-J2000)*DAY*2*Math.PI/primary.spin.period);
  let east=unit(cross(axis,[1,0,0]));if(norm(east)<.1)east=unit(cross(axis,[0,1,0]));const zero=unit(cross(east,axis));
@@ -72,9 +74,9 @@ export function vehicleTelemetry(body,primary,jd,settings={}) {
     dryMass:body.rocket?body.rocket.payloadMass+body.rocket.stages.slice(body.rocket.stage).reduce((s,x)=>s+x.dryMass,0):body.mass,
     totalMass:body.mass,pitch,heading,roll:body.rocket?.roll??0,
     orbitalVelocity:Math.sqrt(G*(settings.gMultiplier??1)*primary.mass/Math.max(norm(r),1)),
-    apoapsis:elements?.apoapsis!==null?elements?.apoapsis-primary.radius:null,
-    periapsis:elements?.periapsis!==undefined?elements.periapsis-primary.radius:null,
-    energy:elements?.specificEnergy??0,elements,...bodyFixed(r,primary,jd)};
+    apoapsis:Number.isFinite(elements?.apoapsis)?elements.apoapsis-primary.radius:null,
+    periapsis:Number.isFinite(elements?.periapsis)?elements.periapsis-primary.radius:null,
+    energy:elements?.specificEnergy??(dot(v,v)/2-G*(settings.gMultiplier??1)*primary.mass/Math.max(norm(r),1)),elements,...bodyFixed(r,primary,jd)};
 }
 export function rocketMass(rocket) {
   return rocket.payloadMass+rocket.stages.slice(rocket.stage).reduce((s,x)=>s+x.dryMass+x.fuel,0);
@@ -82,7 +84,7 @@ export function rocketMass(rocket) {
 export function defaultRocket() {
   return {stages:[{name:'Booster',dryMass:25600,fuel:395000,capacity:395000,thrust:7600000,isp:300,engineCount:1},
     {name:'Upper stage',dryMass:4000,fuel:92000,capacity:92000,thrust:1000000,isp:348,engineCount:1}],
-    stage:0,payloadMass:12000,throttle:1,engineOn:false,autopilot:true,autoStage:true,
+    stage:0,payloadMass:12000,separationSpeed:1,throttle:1,engineOn:false,autopilot:true,autoStage:true,
     targetAltitude:200000,area:12,cd:0.35,met:0,phase:'prelaunch',orientation:[1,0,0],
     pitch:90,heading:90,roll:0,maxQ:0,maxQPassed:false,actualThrust:0,separations:[],deployed:false,stageRequested:false};
 }
@@ -108,9 +110,11 @@ export function propulsion(body,primary,dt,jd,settings,notify,spawn) {
       r.stageRequested=false;const discarded=stage.dryMass+stage.fuel;
       const stageBody={...body,id:body.id+'-stage-'+r.stage+'-'+Math.round(r.met*100),name:body.name+' separated '+stage.name,
         rocket:null,spacecraft:null,type:'custom',mass:discarded,radius:3,material:'debris',
-        position:add(body.position,scale(up,-20)),velocity:add(body.velocity,scale(up,-1)),collisionMode:'none',disrupted:true};
+        position:[...body.position],velocity:[...body.velocity],collisionMode:'none',disrupted:true,
+        metadata:{...body.metadata,separatedStage:{parentId:body.id,jd,name:stage.name,orientation:[...r.orientation]}}};
       spawn(stageBody);r.separations.push({stage:r.stage,jd});r.stage++;
       r.engineOn=true;r.phase='second-stage ignition';body.mass=rocketMass(r);
+      const total=body.mass+discarded,separation=Math.max(0,r.separationSpeed??1);stageBody.velocity=sub(stageBody.velocity,scale(up,separation*body.mass/total));body.velocity=add(body.velocity,scale(up,separation*discarded/total));
       notify('staging',body.name+': '+stage.name+' separated; next engine ignited',[body.id,stageBody.id]);
     }
   }

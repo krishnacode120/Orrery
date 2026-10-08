@@ -75,6 +75,7 @@ class RocketConfig(ConfigBlock):
     engineOn: bool
     autopilot: bool
     autoStage: bool
+    separationSpeed: FiniteFloat = Field(default=1, ge=0, le=100)
 
 class SpacecraftConfig(ConfigBlock):
     range: FiniteFloat = Field(gt=0)
@@ -103,7 +104,7 @@ class HoleConfig(ConfigBlock):
 class Maneuver(ConfigBlock):
     id: str = Field(min_length=1,max_length=80)
     bodyId: str = Field(min_length=1,max_length=80)
-    jd: FiniteFloat = Field(ge=2378496.5,lt=2470172.5)
+    jd: FiniteFloat = Field(ge=2378496.5,lt=2816787.5)
     direction: Literal['prograde','retrograde','in','out','normal','antinormal','vector']
     deltaV: FiniteFloat = Field(ge=0,le=1e7)
     vector: Vec3
@@ -262,19 +263,69 @@ class Settings(StrictModel):
 
 class PhysicalEvent(StrictModel):
     id: int = Field(gt=0, le=9007199254740991)
-    jd: FiniteFloat = Field(ge=2378496.5, lt=2470172.5)
-    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova', 'soi', 'apsis', 'landing', 'eclipse']
+    jd: FiniteFloat = Field(ge=2378496.5, lt=2816787.5)
+    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova', 'soi', 'apsis', 'landing', 'eclipse', 'experiment']
     bodyIds: list[Annotated[str, Field(max_length=80)]] = Field(max_length=16)
     message: str = Field(max_length=1000)
     energyDelta: FiniteFloat
     massDelta: FiniteFloat
 
 
+class ExperimentOperation(StrictModel):
+    kind: Literal['mass','radius','density','position','velocity','spin','tilt','temperature','gravity','create','delete','burn','ignite','cutoff','stage','collision','fragment']
+    bodyId: str | None = Field(default=None, max_length=80)
+    otherId: str | None = Field(default=None, max_length=80)
+    mode: Literal['set','multiply','add'] | None = None
+    value: FiniteFloat | None = None
+    vector: Vec3 | None = None
+    factor: FiniteFloat | None = Field(default=None, ge=-1000, le=1000)
+    relative: bool = False
+    children: bool = False
+    fuelAware: bool = False
+    speed: FiniteFloat = Field(default=1000, ge=0, le=1e7)
+    count: int = Field(default=8, ge=2, le=64)
+    body: Body | None = None
+
+    @model_validator(mode='after')
+    def operation(self):
+        if self.mode is None:
+            self.mode = 'add' if self.kind in ('position','velocity','burn') else 'set'
+        if self.kind == 'burn' and self.mode != 'add':
+            raise ValueError('Burn is an additive impulse')
+        if self.kind not in ('gravity','create') and not self.bodyId:
+            raise ValueError('Operation requires bodyId')
+        if self.kind in ('mass','radius','density','spin','tilt','temperature','gravity') and (self.value is None or abs(self.value)>1e40 or self.mode not in ('set','multiply')):
+            raise ValueError('Invalid scalar operation')
+        if self.kind in ('position','velocity','burn') and (self.vector is None or max(abs(x) for x in self.vector)>1e20 or self.mode=='multiply' and self.factor is None):
+            raise ValueError('Invalid vector operation')
+        if self.kind=='create' and self.body is None:
+            raise ValueError('Creation requires full body')
+        if self.kind=='collision' and not self.otherId:
+            raise ValueError('Collision requires otherId')
+        return self
+
+
+class ExperimentEvent(StrictModel):
+    id: str = Field(min_length=1, max_length=80)
+    jd: FiniteFloat = Field(ge=2378496.5, lt=2816787.5)
+    operation: ExperimentOperation
+    executed: bool = False
+    actualJD: FiniteFloat | None = Field(default=None, ge=2378496.5, lt=2816787.5)
+    failed: str | None = Field(default=None, max_length=1000)
+
+
+class ScenarioBranch(StrictModel):
+    id: str = Field(min_length=1, max_length=80)
+    parentId: str = Field(min_length=1, max_length=80)
+    name: str = Field(max_length=120)
+    epochJD: FiniteFloat = Field(ge=2378496.5, lt=2816787.5)
+
+
 class Scenario(StrictModel):
     version: Literal[1, 2]
     name: str = Field(min_length=1, max_length=120)
     mode: Literal['reality', 'sandbox']
-    jd: FiniteFloat = Field(ge=2378496.5, lt=2470172.5)
+    jd: FiniteFloat = Field(ge=2378496.5, lt=2816787.5)
     settings: Settings
     bodies: list[Body] = Field(max_length=20000)
     events: list[PhysicalEvent] = Field(default_factory=list, max_length=200)
@@ -288,6 +339,8 @@ class Scenario(StrictModel):
     telemetry: list[dict[str, Any]] = Field(default_factory=list, max_length=2400)
     mission: dict[str, Any] = Field(default_factory=dict)
     ephemeris: dict[str, Any] | None = None
+    experimentEvents: list[ExperimentEvent] = Field(default_factory=list, max_length=256)
+    branch: ScenarioBranch | None = None
 
     @model_validator(mode='after')
     def identities(self):
@@ -301,6 +354,10 @@ class Scenario(StrictModel):
         for b in self.bodies:
             if b.parentId is not None and (b.parentId not in ids or b.parentId == b.id):
                 raise ValueError('Invalid parent ID')
+        if self.mode == 'reality' and self.jd >= 2470172.5:
+            raise ValueError('Reality epoch outside the JPL approximate table')
+        if len({e.id for e in self.experimentEvents}) != len(self.experimentEvents):
+            raise ValueError('Duplicate experiment event IDs')
         expected = {'sun','mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'}
         if self.mode == 'reality' and not expected.issubset(ids):
             raise ValueError('Reality requires the eight planets and Sun')
@@ -326,7 +383,7 @@ class Scenario(StrictModel):
                 value=self.view[key]
                 if isinstance(value, bool) or not isinstance(value, (int,float)) or not .01 <= value <= 1e6:
                     raise ValueError('Invalid display scale: '+key)
-        for key in ('realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'):
+        for key in ('smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'):
             if key in self.view and not isinstance(self.view[key], bool):
                 raise ValueError('Invalid view flag: '+key)
         if self.view.get('navigation'):

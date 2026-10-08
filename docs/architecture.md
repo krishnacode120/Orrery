@@ -14,4 +14,8 @@ Physics modules have no React/browser dependencies except performance.now as a m
 
 Autosave uses completed IndexedDB transactions. Explicit scenarios use a separate key namespace in the same database. Camera/mission settings and bounded history are embedded in exported JSON. Files are validated before replacing the scenario. Version 1 imports fill new defaults without changing SI state vectors.
 
+What-If holds the original scenario, editing history and pause state independently of its editable branch. Enter/reset/exit use a revision boundary without a camera load command. Apply is a single undoable scenario commit. A separate disposable worker integrates cloned baseline and experimental states to matched epochs; stale results are discarded on editing revisions. Root autosave and experiment-session storage use separate IndexedDB keys. Scheduled physical changes execute atomically inside Engine and adjust event conservation baselines. Settings, event execution flags and topology publish with the same completed frame. See what-if.md.
+
+MotionFrame publishes a shared visual-only interpolation frame before CameraRig. Geometry, labels and follow targets consume that frame; UI telemetry consumes authoritative worker state. Previous/current poses are never written back to physics buffers or scenario history. See motion.md.
+
 The backend is a capability-based persistence/ephemeris service. SQLite retains payload JSON and a hash of the edit capability. No simulation runs on the server. NASA requests have a fixed upstream URL, numeric target validation, a two-request semaphore, timeout, and seven-day cache.

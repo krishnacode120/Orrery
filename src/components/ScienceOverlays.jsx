@@ -6,17 +6,20 @@ import {Vector3,Color} from 'three';
 import {useSimStore} from '../store/useSimStore.js';
 import {useUIStore} from '../store/useUIStore.js';
 import {viewSpace,displayRadius} from './viewSpace.js';
+import {renderScenario} from '../rendering/frame.js';
 import {sphereOfInfluence} from '../physics/transfers.js';
 import {lagrangePoints} from '../physics/observations.js';
 import {primaryFor} from '../physics/orbital.js';
 import {norm,sub,add,unit,G,cross,scale} from '../physics/units.js';
 export function AdaptiveLabels(){
- const s=useSimStore(x=>x.scenario),ui=useUIStore(),refs=useRef(new Map()),last=useRef(0);
+ const s=useSimStore(x=>x.scenario),ui=useUIStore(),refs=useRef(new Map()),groups=useRef(new Map()),last=useRef(0);
+ const built=viewSpace(s);
  const {camera,size}=useThree();
  const bodies=s.bodies.filter(b=>b.visible&&!b.disrupted&&(!b.massless||b.spacecraft||b.rocket)&&(s.view.showMoons!==false||b.type!=='moon')).sort((a,b)=>(b.id===s.view.selected)-(a.id===s.view.selected)||(a.type==='moon')-(b.type==='moon')).slice(0,100);
  useFrame(({clock})=>{
+  const visual=renderScenario(useSimStore.getState().scenario);for(const b of visual.bodies){const group=groups.current.get(b.id);if(group)group.position.fromArray(built.transform(b.position));}
   if(clock.elapsedTime-last.current<.12)return;last.current=clock.elapsedTime;
-  const current=useSimStore.getState().scenario,space=viewSpace(current),boxes=[];
+  const current=visual,space=viewSpace(current),boxes=[];
   for(const b of bodies){
    const el=refs.current.get(b.id);if(!el)continue;const actual=current.bodies.find(x=>x.id===b.id);if(!actual)continue;
    const point=new Vector3(...space.transform(actual.position)),distance=point.distanceTo(camera.position),radius=displayRadius(actual,current,space),selected=b.id===current.view.selected;
@@ -25,12 +28,12 @@ export function AdaptiveLabels(){
    if(!selected&&['vehicle','true'].includes(current.view.scale))visible=false;
    const x=(point.x+1)/2*size.width,y=(1-point.y)/2*size.height,box=[x-35,y-12,x+70,y+12];
    if(!selected&&boxes.some(r=>box[0]<r[2]&&box[2]>r[0]&&box[1]<r[3]&&box[3]>r[1]))visible=false;
-   if(visible)boxes.push(box);el.style.display=visible?'':'none';
+   if(visible)boxes.push(box);el.style.opacity=visible?'1':'0';el.style.pointerEvents=visible?'auto':'none';
   }
  });
  if(!s.view.labels||ui.hidden||!ui.hud)return null;
  const space=viewSpace(s);
- return <>{bodies.map(b=><Html key={b.id} position={space.transform(b.position)} center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
+ return <>{bodies.map(b=><Html ref={g=>g?groups.current.set(b.id,g):groups.current.delete(b.id)} key={b.id} position={space.transform(b.position)} center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
  <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html>)}</>;
 }
 export function ScienceOverlays(){

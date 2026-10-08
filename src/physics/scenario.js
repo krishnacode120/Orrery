@@ -1,7 +1,8 @@
 import { DEFAULT_SETTINGS, TYPES } from './body.js';
 import {validateNavigation,cameraMode,validPose} from '../navigation/settings.js';
-import { MIN_JD, MAX_JD } from './units.js';
+import { MIN_JD, MAX_JD, SANDBOX_MAX_JD } from './units.js';
 import { MAX_BODIES, MAX_MASSIVE, MAX_EVENTS } from './limits.js';
+import {validateSchedule} from './experimentOps.js';
 import { DEFAULT_VIEW } from './catalog.js';
 import { rocketMass } from './vehicles.js';
 
@@ -19,6 +20,8 @@ export function validateScenario(input) {
   s.view.timeBookmarks??=[];require(Array.isArray(s.view.timeBookmarks)&&s.view.timeBookmarks.length<=100&&s.view.timeBookmarks.every(x=>typeof x.name==='string'&&x.name.length<=80&&finite(x.jd)&&x.jd>=MIN_JD&&x.jd<MAX_JD),'Invalid time bookmarks');
   s.tags??=[];s.description??='';s.provenance??={source:s.mode==='reality'?'jpl':'custom',epochJD:s.jd,note:'Migrated Phase 1 snapshot'};
   s.maneuvers??=[];s.stations??=[];s.telemetry??=[];s.mission??={name:s.name,epochJD:s.jd};
+  s.experimentEvents??=[];validateSchedule(s.experimentEvents);
+  if(s.branch)require(typeof s.branch.id==='string'&&s.branch.id.length>0&&s.branch.id.length<=80&&typeof s.branch.parentId==='string'&&s.branch.parentId.length>0&&s.branch.parentId.length<=80&&finite(s.branch.epochJD)&&s.branch.epochJD>=MIN_JD&&s.branch.epochJD<SANDBOX_MAX_JD&&typeof s.branch.name==='string'&&s.branch.name.length<=120,'Invalid scenario branch');
   require(['auto','low','medium','high','ultra'].includes(s.view.quality),'Invalid quality');
   require(['system','planetary','earth','vehicle','true'].includes(s.view.scale),'Invalid viewing scale');
   require(finite(s.view.exaggeration)&&s.view.exaggeration>=1&&s.view.exaggeration<=1e6,'Invalid display radius multiplier');
@@ -47,7 +50,7 @@ export function validateScenario(input) {
   normalizeZero(s);
   require(typeof s.name === 'string' && s.name.length > 0 && s.name.length <= 120, 'Invalid scenario name');
   require(['reality','sandbox'].includes(s.mode), 'Invalid mode');
-  require(finite(s.jd) && s.jd >= MIN_JD && s.jd < MAX_JD, 'Date must be within 1800–2050');
+  require(finite(s.jd) && s.jd >= MIN_JD && s.jd < (s.mode==='reality'?MAX_JD:SANDBOX_MAX_JD), 'Epoch outside the mode coverage: Reality 1800–2050, Sandbox 1800–2999');
   require(Array.isArray(s.bodies) && s.bodies.length <= MAX_BODIES, 'At most 20000 bodies are supported');
   require(s.bodies.filter(b=>!b.massless && b.mass>0).length<=MAX_MASSIVE,'At most 512 gravitational sources are supported');
   const ids = new Set();
@@ -59,7 +62,7 @@ export function validateScenario(input) {
       &&Array.isArray(b.wormhole.orientation)&&b.wormhole.orientation.length===4&&b.wormhole.orientation.every(finite)
       &&Math.hypot(...b.wormhole.orientation)>0&&finite(b.wormhole.cooldown)&&b.wormhole.cooldown>=.01,'Invalid wormhole');
     if(b.rocket) {
-      const r=b.rocket;require(Array.isArray(r.stages)&&r.stages.length>=1&&r.stages.length<=8,'Invalid rocket stages');
+      const r=b.rocket;require(finite(r.separationSpeed??1)&&(r.separationSpeed??1)>=0&&(r.separationSpeed??1)<=100,'Invalid separation speed');require(Array.isArray(r.stages)&&r.stages.length>=1&&r.stages.length<=8,'Invalid rocket stages');
       require(Number.isInteger(r.stage)&&r.stage>=0&&r.stage<r.stages.length&&r.payloadMass>=0&&r.throttle>=0&&r.throttle<=1
         &&r.targetAltitude>=100000&&r.targetAltitude<=1e8&&r.area>0&&r.cd>=0&&vector(r.orientation),'Invalid rocket configuration');
       for(const stage of r.stages){require(Number.isInteger(stage.engineCount??1)&&(stage.engineCount??1)>0&&(stage.engineCount??1)<=100,'Invalid engine count');}
@@ -102,7 +105,7 @@ export function validateScenario(input) {
   }
   require(['scientific','visibility','educational','custom'].includes(s.view.scaleMode??'visibility'),'Invalid scale model');
   for(const key of ['distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'])if(s.view[key]!==undefined)require(finite(s.view[key])&&s.view[key]>=.01&&s.view[key]<=1e6,'Invalid display scale: '+key);
-  for(const key of ['realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
+  for(const key of ['smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
   require(Array.isArray(s.view.savedCameras)&&s.view.savedCameras.length<=100&&Array.isArray(s.view.keyframes)&&s.view.keyframes.length<=32,'Invalid camera collection');
   for(const c of [...s.view.savedCameras,...s.view.keyframes,...(s.view.camera?[s.view.camera]:[])])require((validPose(c)||vector(c.position)&&vector(c.target))&&['system','planetary','earth','vehicle','true'].includes(c.scale),'Invalid camera pose');
   s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
@@ -134,8 +137,8 @@ export function validateScenario(input) {
   const eventIds=new Set();
   for(const event of s.events) {
     require(Number.isSafeInteger(event.id)&&event.id>0&&event.id<=s.eventSerial&&!eventIds.has(event.id),'Invalid event ID');eventIds.add(event.id);
-    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova','soi','apsis','landing','eclipse'].includes(event.kind),'Invalid event kind');
-    require(finite(event.jd)&&event.jd>=MIN_JD&&event.jd<MAX_JD,'Invalid event date');
+    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova','soi','apsis','landing','eclipse','experiment'].includes(event.kind),'Invalid event kind');
+    require(finite(event.jd)&&event.jd>=MIN_JD&&event.jd<SANDBOX_MAX_JD,'Invalid event date');
     require(typeof event.message==='string'&&event.message.length<=1000,'Invalid event message');
     require(Array.isArray(event.bodyIds)&&event.bodyIds.length<=16&&event.bodyIds.every(x=>typeof x==='string'&&x.length<=80),'Invalid event body IDs');
     require(finite(event.energyDelta)&&finite(event.massDelta),'Invalid event accounting');

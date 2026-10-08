@@ -3,6 +3,10 @@ import {useBodyDrag} from './BodyInteraction.js';
 import {ScienceOverlays,AdaptiveLabels} from './ScienceOverlays.jsx';
 import CameraRig from './CameraRig.jsx';
 import FrameGroup from './FrameGroup.jsx';
+import MotionFrame from './MotionFrame.jsx';
+import HistoryTrails from './HistoryTrails.jsx';
+import WhatIfGhosts from './WhatIfGhosts.jsx';
+import {renderScenario,effectTime} from '../rendering/frame.js';
 import {useCameraStore} from '../store/useCameraStore.js';
 import {focusCamera} from '../navigation/actions.js';
 import Picking from './Picking.jsx';
@@ -36,7 +40,7 @@ function PlanetMaterial({body}) {
  const [map,night,clouds]=useTexture(['/textures/'+(mapName??'moon')+'.jpg','/textures/earth_nightmap.jpg','/textures/earth_clouds.jpg']);
  useEffect(()=>{map.colorSpace=SRGBColorSpace;night.colorSpace=SRGBColorSpace;map.anisotropy=4;map.needsUpdate=true;night.needsUpdate=true;},[map,night]);
  const material=useRef();const uniforms=useMemo(()=>({surfaceMap:{value:map},nightMap:{value:night},cloudMap:{value:clouds},mapped:{value:mapName?1:0},cloudVisibility:{value:1},baseColor:{value:new Color(body.color)},kind:{value:body.type==='star'||body.type==='pulsar'?3:body.material==='earth'?1:body.material==='gas'?2:0},time:{value:0},lightDirection:{value:new Vector3(1,0,0)}}),[body.color,body.type,body.material,map,night,clouds,mapName]);
- useFrame(({camera})=>{const s=useSimStore.getState().scenario,sun=s.bodies.find(b=>b.type==='star'),p=body.position;
+ useFrame(({camera})=>{const s=renderScenario(useSimStore.getState().scenario),sun=s.bodies.find(b=>b.type==='star'),p=s.bodies.find(b=>b.id===body.id)?.position??body.position;
  const light=sun?sub(sun.position,p):[AU,0,0];uniforms.lightDirection.value.set(light[0],light[2],-light[1]).transformDirection(camera.matrixWorldInverse);
  const space=viewSpace(s),center=new Vector3(...space.transform(p));uniforms.cloudVisibility.value=body.id==='earth'&&camera.position.distanceTo(center)*space.unit-body.radius<15000?0:1;
  uniforms.time.value=s.jd*DAY%100000;});
@@ -48,7 +52,7 @@ function Portal({body,radius}) {
  const uniforms=useMemo(()=>({portal:{value:target.texture},time:{value:0}}),[target]);
  useEffect(()=>()=>target.dispose(),[target]);
  useFrame(({clock})=>{
- uniforms.time.value=clock.elapsedTime;if(++counter.current%8)return;
+ uniforms.time.value=effectTime();if(++counter.current%8)return;
  const s=useSimStore.getState().scenario,other=s.bodies.find(b=>b.id===body.wormhole?.pairId);if(!other)return;
  const space=viewSpace(s),p=space.transform(other.position);camera.position.fromArray(p);camera.position.z+=displayRadius(other,s,space)*1.1;camera.lookAt(...p);
  const hidden=[];scene.traverse(x=>{if(x.name==='portal-surface'){hidden.push([x,x.visible]);x.visible=false;}});
@@ -59,14 +63,14 @@ function Portal({body,radius}) {
 function BodyMesh({body}) {
  const s=useSimStore.getState().scenario,space=viewSpace(s),radius=displayRadius(body.type==='blackHole'?{...body,radius:Math.max(Number.EPSILON,schwarzschild(body.mass,s.settings))}:body,s,space),selected=s.view.selected===body.id;
  const dragHandlers=useBodyDrag(body);
- const surface=useRef(),group=useRef(),disk=useRef(),beam=useRef();
+ const surface=useRef(),group=useRef(),disk=useRef(),beam=useRef(),visualSize=useRef(radius*space.unit/space.distanceScale);
  const diskUniforms=useMemo(()=>({time:{value:0},doppler:{value:body.blackHole?.doppler?1:0},temperature:{value:body.blackHole?.temperature??15000}}),[body.blackHole?.doppler,body.blackHole?.temperature]);
- useFrame(({clock})=>{if(!group.current)return;const state=useSimStore.getState().scenario,b=state.bodies.find(x=>x.id===body.id);if(!b)return;
- const active=viewSpace(state);group.current.position.fromArray(active.transform(b.position));group.current.scale.setScalar(space.unit/active.unit*active.distanceScale/space.distanceScale);
+ useFrame(({clock},dt)=>{if(!group.current)return;const state=renderScenario(useSimStore.getState().scenario),b=state.bodies.find(x=>x.id===body.id);if(!b)return;
+ const active=viewSpace(state);group.current.position.fromArray(active.transform(b.position));const wanted=displayRadius(b.type==='blackHole'?{...b,radius:Math.max(Number.EPSILON,schwarzschild(b.mass,state.settings))}:b,state,active)*active.unit/active.distanceScale;visualSize.current=state.view.reducedMotion?wanted:Math.exp(Math.log(Math.max(1e-20,visualSize.current))+(Math.log(Math.max(1e-20,wanted))-Math.log(Math.max(1e-20,visualSize.current)))*(1-Math.exp(-24*Math.min(.1,dt))));group.current.scale.setScalar(space.unit/active.unit*active.distanceScale/space.distanceScale*visualSize.current/Math.max(1e-20,radius*space.unit/space.distanceScale));
  if(surface.current)surface.current.rotation.y=(state.jd*DAY/b.spin.period%1)*Math.PI*2;
- diskUniforms.time.value=clock.elapsedTime;if(beam.current)beam.current.rotation.y=clock.elapsedTime*8;});
+ diskUniforms.time.value=effectTime()*.15;if(beam.current)beam.current.rotation.y=effectTime()*8;});
  if(!body.visible)return null;
- const dark=body.type==='blackHole',vehicle=!!body.rocket||!!body.spacecraft;
+ const dark=body.type==='blackHole',vehicle=!!body.rocket||!!body.spacecraft||!!body.metadata?.separatedStage;
  const nearestStar=s.bodies.filter(b=>b.type==='star').sort((a,b)=>norm(sub(a.position,body.position))-norm(sub(b.position,body.position)))[0];
  const tail=unitVector(nearestStar?sub(body.position,nearestStar.position):[1,0,0]),tailDirection=new Vector3(tail[0],tail[2],-tail[1]);
  return <group name={'body-'+body.id} {...dragHandlers} ref={group} position={space.transform(body.position)} onClick={e=>{e.stopPropagation();select(body.id);}} onDoubleClick={e=>{e.stopPropagation();focusCamera(body.id);}} onPointerOver={()=>{document.body.style.cursor='pointer';}} onPointerOut={()=>{document.body.style.cursor='';}}>
@@ -89,23 +93,16 @@ function BodyMesh({body}) {
 }
 function Particles({bodies}) {
  const mesh=useRef(),dummy=useMemo(()=>new Object3D(),[]),color=useMemo(()=>new Color(),[]);
- useFrame(()=>{const s=useSimStore.getState().scenario,space=viewSpace(s),list=s.bodies.filter(isParticle);if(!mesh.current)return;
+ useFrame(()=>{const s=renderScenario(useSimStore.getState().scenario),space=viewSpace(s),list=s.bodies.filter(isParticle);if(!mesh.current)return;
  mesh.current.count=list.length;list.forEach((b,i)=>{dummy.position.fromArray(space.transform(b.position));dummy.scale.setScalar(b.visible?(s.view.realRadii?b.radius/space.unit*space.distanceScale:Math.max(displayRadius(b,s,space),.016)):0);dummy.updateMatrix();mesh.current.setMatrixAt(i,dummy.matrix);mesh.current.setColorAt(i,color.set(b.color));});
  mesh.current.instanceMatrix.needsUpdate=true;if(mesh.current.instanceColor)mesh.current.instanceColor.needsUpdate=true;
  });
  return <instancedMesh ref={mesh} args={[null,null,20000]} frustumCulled={false} onClick={e=>{e.stopPropagation();const list=useSimStore.getState().scenario.bodies.filter(isParticle);if(list[e.instanceId])select(list[e.instanceId].id);}}><icosahedronGeometry args={[1,0]}/><meshBasicMaterial color="#ffffff"/></instancedMesh>;
 }
-const isParticle=b=>(b.type==='asteroid'||b.disrupted)&&!b.rocket&&!b.spacecraft;
+const isParticle=b=>(b.type==='asteroid'||b.disrupted)&&!b.rocket&&!b.spacecraft&&!b.metadata?.separatedStage;
 function Paths() {
  const sim=useSimStore(),s=sim.scenario,space=viewSpace(s),b=s.bodies.find(x=>x.id===s.view.selected),paths=[];
- const history=useRef(new Map(Object.entries(structuredClone(s.view.trailHistory??{})))),last=useRef(null),persisted=useRef(0);
- useFrame(({clock})=>{if(clock.elapsedTime-persisted.current<2)return;persisted.current=clock.elapsedTime;
- const trails=Object.fromEntries([...history.current].filter(([id])=>useSimStore.getState().scenario.bodies.some(b=>b.id===id)));
- useSimStore.getState().configureView({trailHistory:structuredClone(trails)});useSimStore.setState({activeTrailPoints:Object.values(trails).reduce((sum,a)=>sum+a.length,0)});
- });
- if(last.current!==s.jd){for(const x of s.bodies.filter(x=>!isParticle(x)).slice(0,40)){const list=history.current.get(x.id)??[];list.push({jd:s.jd,position:[...x.position]});const max=Math.min(x.trail.length,sim.qualityLevel==='low'?128:1024);
- history.current.set(x.id,list.filter(p=>Math.abs(s.jd-p.jd)*DAY<(x.trail.duration??DAY*100)).slice(-max));}last.current=s.jd;}
- useEffect(()=>{history.current=new Map(Object.entries(structuredClone(useSimStore.getState().scenario.view.trailHistory??{})));last.current=null;},[sim.revision]);
+
  if(s.view.orbits&&(!['vehicle','true'].includes(s.view.scale)||b?.spacecraft||b?.rocket))for(const x of s.bodies.filter(x=>!isParticle(x)&&(s.view.scale==='system'||s.view.scale==='earth'||s.view.scale==='planetary'||x.id===b?.id)).slice(0,50)) {
  const d=derivedOrbit(x,s.bodies,s.settings),o=d.elements;if(!o||o.e>=1||!d.primary)continue;
  const points=Array.from({length:129},(_,i)=>space.transform(add(d.primary.position,stateFromElements({...o,M:i/128*Math.PI*2},G*s.settings.gMultiplier*(d.primary.mass+(x.massless?0:x.mass))).position)));
@@ -118,8 +115,7 @@ function Paths() {
  }
  if(x.id===b?.id&&s.view.plane)paths.push(<mesh key="plane" position={space.transform(d.primary.position)} quaternion={new Quaternion().setFromUnitVectors(new Vector3(0,0,1),new Vector3(o.h[0],o.h[2],-o.h[1]).normalize())}><circleGeometry args={[o.a/space.unit,96]}/><meshBasicMaterial color="#6d8397" transparent opacity={.045} side={DoubleSide} depthWrite={false}/></mesh>);
  }
- if(s.view.trails)for(const [id,list] of history.current)if(list.length>1){const body=s.bodies.find(b=>b.id===id);if(!body||body.trail.mode==='orbit')continue;
- const points=list.map(x=>space.transform(x.position));paths.push(<Line key={'trail'+id} points={points} color={body.trail.color} vertexColors={points.map((_,i)=>new Color(body.trail.color).multiplyScalar(.08+.6*i/points.length))} lineWidth={(body.trail.width??1)*(s.view.trailScale??1)} transparent opacity={.65}/>);}
+
  if(sim.prediction&&s.view.predictionPaths!==false)for(const [id,list] of Object.entries(sim.prediction.paths))if(list.length>1)paths.push(<Line key={'prediction'+id} points={list.map(x=>space.transform(x.position))} color="#bca4d2" dashed dashSize={.3} gapSize={.2} lineWidth={1}/>);
  if(b){
  const d=derivedOrbit(b,s.bodies,s.settings);
@@ -162,7 +158,7 @@ function Performance() {
 function World() {
  const composer=useRef();
  const s=useSimStore(x=>x.scenario),quality=useSimStore(x=>x.qualityLevel),major=s.bodies.filter(b=>!isParticle(b)&&(s.view.showMoons!==false||b.type!=='moon'));
- return <><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<Starfield/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
+ return <><MotionFrame/><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<Starfield/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><HistoryTrails/><WhatIfGhosts/><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
  <EffectComposer ref={composer} enabled={false} frameBufferType={UnsignedByteType} multisampling={0}><Bloom luminanceThreshold={.9} intensity={.3} mipmapBlur/></EffectComposer></>;
 }
 const Scene=memo(function Scene(){return <Canvas id="orrery-viewport" dpr={[1,1.5]} camera={{position:[0,35,60],fov:42,near:.00001,far:1e10}}

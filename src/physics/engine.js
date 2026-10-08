@@ -1,4 +1,5 @@
 import {flightEvents,applyFuelBurn} from './flight.js';
+import {applyOperation} from './experimentOps.js';
 import {sunlight,observingStar,signalLink} from './observations.js';
 import { stateAt } from './elements.js';
 import { diagnostics, accelerations, verlet, rk4, dormandPrince, accelerationTimestep } from './integrators.js';
@@ -10,7 +11,7 @@ import { realityBodies } from './catalog.js';
 import { interpolateVectors } from './ephemeris.js';
 import { propulsion, vehicleTelemetry, burnVector, communications, lineOfSight, clamp, rotateAxis, EARTH_ROTATION } from './vehicles.js';
 import { MAX_EVENTS, MAX_BODIES } from './limits.js';
-import { DAY, MIN_JD, MAX_JD, norm, add, sub, scale, cross, unit, EARTH_AXIS,dot } from './units.js';
+import { DAY, MIN_JD, MAX_JD, SANDBOX_MAX_JD, norm, add, sub, scale, cross, unit, EARTH_AXIS,dot } from './units.js';
 
 export class Engine {
   load(scenario) {
@@ -78,6 +79,15 @@ export class Engine {
       this.log('burn',b.name+': ideal impulsive Δv '+norm(dv).toFixed(2)+' m/s',[b.id],jd,after.energy-before.energy,after.mass-before.mass);
     }
   }
+  scheduled(jd) {
+    for(const event of [...this.s.experimentEvents])if(!event.executed&&event.jd<=jd+1e-9){
+      const before=diagnostics(this.s.bodies,this.s.settings),candidate=structuredClone(this.s),copy=candidate.experimentEvents.find(e=>e.id===event.id);
+      try{const message=applyOperation(candidate,copy.operation);copy.executed=true;copy.actualJD=jd;candidate.jd=jd;const valid=validateScenario(candidate);Object.assign(this.s.settings,valid.settings);valid.settings=this.s.settings;valid.jd=this.s.jd;Object.assign(this.s,valid);
+        const after=diagnostics(this.s.bodies,this.s.settings);this.baseline.energy+=after.energy-before.energy;for(let k=0;k<3;k++)this.baseline.angular[k]+=after.angular[k]-before.angular[k];this.eventEnergyDelta+=after.energy-before.energy;this.eventMassDelta+=after.mass-before.mass;this.topologyRevision++;
+        this.log('experiment',message,[copy.operation.bodyId,copy.operation.otherId,copy.operation.body?.id].filter(Boolean),jd,after.energy-before.energy,after.mass-before.mass);
+      }catch(error){const current=this.s.experimentEvents.find(e=>e.id===event.id);current.executed=true;current.failed=error.message;current.actualJD=jd;this.log('experiment','Scheduled change rejected: '+error.message,[event.operation.bodyId].filter(Boolean),jd);}
+    }
+  }
   advance(seconds) {
     if(!Number.isFinite(seconds))throw new Error('Invalid elapsed time');
     const started=performance.now();let advanced=0,steps=0,rejected=0,lastDt=0,errorEstimate=0;
@@ -92,14 +102,14 @@ export class Engine {
         if(state){b.position=[...state.position];b.velocity=[...state.velocity];}
       });
     } else {
-      const boundary=seconds>=0?(MAX_JD-1e-6-s.jd)*DAY:(MIN_JD-s.jd)*DAY;
+      const boundary=seconds>=0?(SANDBOX_MAX_JD-1e-6-s.jd)*DAY:(MIN_JD-s.jd)*DAY;
       const target=Math.sign(seconds)*Math.min(Math.abs(seconds),Math.abs(boundary),512*p.stepSeconds);
       while(Math.abs(target-advanced)>1e-9 && steps<512 && (steps===0||performance.now()-started<12)) {
         const jd=s.jd+advanced/DAY;
-        if(target>0)this.burns(jd);
+        if(target>0){this.scheduled(jd);this.burns(jd);}
         let maximum=p.adaptive?accelerationTimestep(s.bodies,p):p.stepSeconds;
         if(s.bodies.some(b=>b.rocket && b.rocket.engineOn))maximum=Math.min(maximum,.25);
-        const planned=s.maneuvers.filter(n=>!n.executed&&n.jd>jd).map(n=>(n.jd-jd)*DAY);
+        const planned=[...s.maneuvers,...s.experimentEvents].filter(n=>!n.executed&&n.jd>jd+1e-9).map(n=>(n.jd-jd)*DAY);
         if(target>0&&planned.length)maximum=Math.min(maximum,...planned);
         if(maximum<p.minStep)throw new Error('Required timestep below minimum; lower minimum step or resolve the encounter');
         if(p.integrator==='dopri')maximum=Math.min(maximum,this.nextStep);
@@ -128,6 +138,7 @@ export class Engine {
         }
       }
       s.jd+=advanced/DAY;
+      if(seconds>0)this.scheduled(s.jd);
     }
     this.steps+=steps;this.accepted+=steps;this.rejected+=rejected;
     const d=diagnostics(s.bodies,p),a=accelerations(s.bodies,p);

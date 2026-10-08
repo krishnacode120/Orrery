@@ -24,7 +24,7 @@ export function createWorkerCore() {
       });
       const result={jd:engine.s.jd,stats,count,eventSerial:engine.s.eventSerial,topologyRevision:engine.topologyRevision,
         dynamic:bodies.filter(b=>b.rocket||b.spacecraft||b.id===selectedId).map(b=>({id:b.id,mass:b.mass,rocket:b.rocket,spacecraft:b.spacecraft,acceleration:b.acceleration,locked:b.locked,parentId:b.parentId,metadata:b.metadata})),
-        maneuvers:engine.s.maneuvers};
+        maneuvers:engine.s.maneuvers,experimentEvents:engine.s.experimentEvents,settings:engine.s.settings};
       if(sentTelemetry!==engine.telemetryVersion){result.telemetry=engine.s.telemetry;sentTelemetry=engine.telemetryVersion;}
       if(sentTopology!==engine.topologyRevision) {
         result.bodies=bodies.map(({position,velocity,...metadata})=>metadata);
