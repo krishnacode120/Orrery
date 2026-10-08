@@ -1,4 +1,5 @@
 import {useRef,useMemo} from 'react';
+import {focusCamera} from '../navigation/actions.js';
 import {useFrame,useThree} from '@react-three/fiber';
 import {Html,Line} from '@react-three/drei';
 import {Vector3,Color} from 'three';
@@ -6,7 +7,9 @@ import {useSimStore} from '../store/useSimStore.js';
 import {useUIStore} from '../store/useUIStore.js';
 import {viewSpace,displayRadius} from './viewSpace.js';
 import {sphereOfInfluence} from '../physics/transfers.js';
-import {norm,sub,add,unit,G} from '../physics/units.js';
+import {lagrangePoints} from '../physics/observations.js';
+import {primaryFor} from '../physics/orbital.js';
+import {norm,sub,add,unit,G,cross,scale} from '../physics/units.js';
 export function AdaptiveLabels(){
  const s=useSimStore(x=>x.scenario),ui=useUIStore(),refs=useRef(new Map()),last=useRef(0);
  const {camera,size}=useThree();
@@ -28,7 +31,7 @@ export function AdaptiveLabels(){
  if(!s.view.labels||ui.hidden||!ui.hud)return null;
  const space=viewSpace(s);
  return <>{bodies.map(b=><Html key={b.id} position={space.transform(b.position)} center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
- <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{useSimStore.getState().configureView({selected:b.id,scale:'vehicle',camera:null});}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html>)}</>;
+ <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html>)}</>;
 }
 export function ScienceOverlays(){
  const sim=useSimStore(),s=sim.scenario,space=viewSpace(s),b=s.bodies.find(x=>x.id===s.view.selected),ui=useUIStore();
@@ -42,7 +45,11 @@ export function ScienceOverlays(){
  const a=s.bodies.find(x=>x.id===ui.measurementFrom),other=s.bodies.find(x=>x.id===ui.measurementTo);
  const total=s.bodies.filter(x=>!x.massless&&x.mass>0).reduce((m,x)=>m+x.mass,0),center=[0,0,0];
  if(s.view.showBarycenter&&total)for(const x of s.bodies)if(!x.massless)for(let k=0;k<3;k++)center[k]+=x.position[k]*(x.mass/total);
+ const primary=b?primaryFor(b,s.bodies):null,star=s.bodies.find(x=>x.type==='star');
+ const terminators=s.view.terminator&&star?s.bodies.filter(x=>!x.massless&&x.type!=='star'&&(x.id===b?.id||x.id===b?.parentId)).map(x=>{const n=unit(sub(star.position,x.position)),up=Math.abs(n[2])<.9?[0,0,1]:[1,0,0],u=unit(cross(n,up)),w=unit(cross(n,u)),radius=displayRadius(x,s,space)*space.unit/space.distanceScale*1.002;return {id:x.id,points:Array.from({length:129},(_,i)=>space.transform(add(x.position,add(scale(u,Math.cos(i/128*Math.PI*2)*radius),scale(w,Math.sin(i/128*Math.PI*2)*radius)))))};}):[];
  return <>
+ {s.view.showLagrange&&b&&primary&&lagrangePoints(primary,b).map(p=><Html key={p.name} position={space.transform(p.position)} center><span className="body-label" title={p.model}>+ {p.name} · CR3BP</span></Html>)}
+ {terminators.map(t=><Line key={'terminator'+t.id} points={t.points} color="#c0c7b4" transparent opacity={.55} lineWidth={1}/>)}
  {s.view.showSOI&&s.bodies.filter(x=>!x.massless&&(x.id===b?.id||x.id===b?.parentId||x.id===s.view.targetId)).map(x=>{const soi=sphereOfInfluence(x,s.bodies,s.settings);return soi?<group key={x.id} position={space.transform(x.position)}><mesh><sphereGeometry args={[soi/space.unit*space.distanceScale,32,16]}/><meshBasicMaterial wireframe color="#688a9c" transparent opacity={.08} depthWrite={false}/></mesh><Html position={[soi/space.unit,0,0]}><span className="body-label">{x.name} SOI</span></Html></group>:null;})}
  {s.view.transferPath&&s.view.transferPreview?.path?.length>1&&<Line points={s.view.transferPreview.path.map(space.transform)} color="#e0bb7e" dashed lineWidth={1.2}/>}
  {s.view.showAcceleration&&b&&norm(b.acceleration??[])>0&&<arrowHelper args={[new Vector3(...[b.acceleration[0],b.acceleration[2],-b.acceleration[1]]).normalize(),new Vector3(...space.transform(b.position)),3,0xd5a585,.4,.2]}/>}

@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import {useCameraStore} from './useCameraStore.js';
+import {useReplayStore} from './useReplayStore.js';
 import { DEFAULT_SETTINGS, solarSystem } from '../physics/body.js';
 import { julianDate } from '../physics/units.js';
 import { validateScenario } from '../physics/scenario.js';
@@ -15,6 +17,7 @@ export const useSimStore = create((set, get) => ({
   prediction: null, predicting: false, previewMass: null, fps: 0, frameMs: 0, qualityLevel: 'medium',
   undoCount: 0, redoCount: 0,
   edit(recipe) {
+    if(get().replayActive)throw new Error('Recorded replay is read-only. Return to Live before editing physics.');
     // Assignment-expression recipes are common in controls. Only an explicit
     // scenario return value means replacement; scalar/array returns are ignored.
     const apply=draft=>{const result=recipe(draft);if(result&&typeof result==='object'&&result.version&&Array.isArray(result.bodies))return result;};
@@ -25,10 +28,10 @@ export const useSimStore = create((set, get) => ({
     const next = editWithHistory(get().scenario, apply);
     set({ scenario: next, revision: get().revision+1, stats: null, error: null, prediction:null, ...historyCounts() });
   },
-  replace(s) { const next = validateScenario(s); get().edit(() => next); set({ paused: true }); },
-  undo() { set({ scenario: travel(get().scenario,'undo'), revision: get().revision+1,
+  replace(s) { const next = validateScenario(s); get().edit(() => next); set({ paused: true });useCameraStore.getState().request('load'); },
+  undo() { if(get().replayActive)return get().fail('Return to Live before Undo.');set({ scenario: travel(get().scenario,'undo'), revision: get().revision+1,
     stats: null, paused: true, ...historyCounts() }); },
-  redo() { set({ scenario: travel(get().scenario,'redo'), revision: get().revision+1,
+  redo() { if(get().replayActive)return get().fail('Return to Live before Redo.');set({ scenario: travel(get().scenario,'redo'), revision: get().revision+1,
     stats: null, paused: true, ...historyCounts() }); },
   reality() { get().replace(initial()); },
   sandbox() { get().edit(s => { s.mode = 'sandbox'; s.name = 'Solar system sandbox'; s.ephemeris=null;if(s.provenance.source==='horizons')s.provenance.note='Horizons initialization, locally propagated Newtonian state'; }); },
@@ -46,8 +49,8 @@ export const useSimStore = create((set, get) => ({
     const s=initial();s.jd=jd;s.provenance.epochJD=jd;s.bodies=realityBodies(jd);
     get().replace(s);
   },
-  togglePause() { set({ paused: !get().paused }); },
-  step() { set({ paused: true, stepRequest: true }); },
+  togglePause() { if(get().replayActive){const replay=useReplayStore.getState();useReplayStore.setState({playing:!replay.playing});return;}set({ paused: !get().paused }); },
+  step() { if(get().replayActive)return get().fail('Use the recorded-frame scrubber to step replay.');set({ paused: true, stepRequest: true }); },
   frame({ jd, stats, state, render, transport, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry }) {
     const previousEventSerial=get().scenario.eventSerial??0;
     const metadata=bodies??get().scenario.bodies;
@@ -59,7 +62,8 @@ export const useSimStore = create((set, get) => ({
       position: Array.from(state.subarray(i*6,i*6+3)), velocity: Array.from(state.subarray(i*6+3,i*6+6)) })) },
       stats, render, transport, stepRequest: false });
     const selected=get().scenario.bodies.find(b=>b.id===get().scenario.view.selected);
-    if(get().scenario.view.autoArrival&&selected?.parentId===get().scenario.view.targetId&&events?.some(e=>e.id>previousEventSerial&&e.kind==='soi'&&e.bodyIds[0]===selected.id)){get().configureView({scale:'planetary',cameraMode:'follow',camera:null});}
+    const view=get().scenario.view;
+    if(view.autoArrival&&['follow','chase','rocket','satellite'].includes(view.cameraMode)&&(view.cameraTarget??view.selected)===selected?.id&&selected?.parentId===view.targetId&&events?.some(e=>e.id>previousEventSerial&&e.kind==='soi'&&e.bodyIds[0]===selected.id)){get().configureView({scale:'planetary',cameraMode:'follow',cameraTarget:selected.parentId,camera:null});useCameraStore.getState().request('focus',{id:selected.parentId,mode:'follow'});}
   },
   fail(error) { set({ error, paused: true }); },
 }));

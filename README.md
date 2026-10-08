@@ -7,7 +7,7 @@
 
 Orrery is a local-first 3D orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a configurable multistage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
 
-The simulation fills the window. A compact object navigator, collapsible tool panels, selectable workspace layouts, and keyboard navigation surround it. Press **H** to hide or restore the interface. The [exploration and flight guide](docs/exploration-upgrade.md) documents the current workspace. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
+The simulation fills the window. A compact object navigator, collapsible tool panels, selectable workspace layouts, and keyboard navigation surround it. Press **H** to hide or restore the interface. The [camera and exploration guide](docs/camera-navigation.md) documents the rebuilt navigation system; the [flight guide](docs/exploration-upgrade.md) covers missions. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
 
 ## Run on Windows
 
@@ -56,7 +56,7 @@ Telemetry shows MET, phase, position, velocity, acceleration, vertical/horizonta
 
 Load LEO, MEO, GEO, polar, Sun-synchronous-like, elliptical, highly elliptical, or the 24-satellite constellation. Satellite View adds altitude, latitude/longitude, inertial and ground-relative speeds, power, payload, orbital parameters, ground tracks, stations and communication links.
 
-Communication status comes from range and geometric line-of-sight checks. Power uses a simple eclipse/solar/load energy balance. Earth-fixed longitudes use an explicitly illustrative J2000 Greenwich origin. The SSO-like preset sets inclination only: J2 nodal precession is not modeled.
+Communication status includes range, geometric line of sight, propagation delay and an explicitly approximate free-space loss estimate. Power responds to finite-disc sunlight, penumbra and umbra; eclipse transitions enter the event log. Earth-fixed longitudes use an explicitly illustrative J2000 Greenwich origin. The SSO-like preset sets inclination only: J2 nodal precession is not modeled.
 
 Maneuver planning supports prograde, retrograde, radial, normal and arbitrary inertial-vector burns. Burns execute at their scheduled epoch and appear in prediction/event logs. They are ideal impulses. Rocket burns can debit active-stage propellant using the rocket equation; insufficient fuel rejects the burn atomically. Non-rocket burns remain ideal commanded impulses. These planned burns do not model finite engine duration.
 
@@ -100,20 +100,20 @@ Limits: **20,000 bodies**, **512 massive sources**, **64 fragments per event**, 
 
 ## Cameras and capture
 
-Orbit, follow, chase, rocket/satellite chase, free flight, flyby and cinematic modes are available. Save viewpoints and camera keyframes in settings. Cinematic keyframes interpolate over eight seconds per segment.
+The rebuilt camera has one owner and explicit Free, Orbit, Follow, Chase, Target Lock, Cinematic, Surface, Rocket and Satellite modes. Free uses camera-local WASDQE and yaw/pitch mouse-look; selection cannot refocus it. Manual input cancels automated focus. OrbitControls acts only on a proxy in Orbit/Follow. Adaptive/logarithmic speed, Ctrl precision, Shift boost, optional pointer lock, separate damping, reference frames, collision protection, camera history, SI bookmarks and presets are available in Camera navigation. Surface and telescope views use actual radii. Cinematic keyframes interpolate over eight seconds per segment.
 
 PNG captures the viewport. WebM records the viewport at selectable output height and requested frame rate when MediaRecorder supports it. Browser encoding may drop frames. UI compositing, audio capture, GPU timestamp timing, and full GR ray tracing are unavailable and are not represented by fake controls.
 
 ## Controls and accessibility
 
-Drag/touch to orbit; wheel/pinch to zoom; right-drag/two fingers to pan. Click a body or use the collapsible left object navigator to frame it. The System / Moons / Vehicles filters help navigate related objects. Use Overview for live measurements and Properties for editing.
+Drag/touch to orbit; wheel/pinch to zoom; middle-drag/two fingers to pan. Click to select; double-click or F to focus. Single-click selection stays independent of the camera. In Free, drag looks around and wheel changes speed (Alt + wheel dollies). The System / Moons / Vehicles filters help navigate related objects. Use Overview for live measurements and Properties for editing.
 
 | Key | Action |
 | --- | --- |
 | Space | Play / pause |
 | H | Hide / restore all interface |
 | F | Focus local view |
-| Shift F | Frame the solar system |
+| Shift F | Follow selected body |
 | G | Open God Mode |
 | . | Step simulation |
 | R | Reverse time direction |
@@ -122,11 +122,20 @@ Drag/touch to orbit; wheel/pinch to zoom; right-drag/two fingers to pan. Click a
 | Ctrl/Cmd Z | Undo |
 | Ctrl/Cmd Shift Z | Redo |
 | W A S D, Q E | Free camera movement |
-| Shift | Faster free camera |
+| Shift / Ctrl | Temporary boost / precision |
+| C | Optional pointer lock |
+| Alt Left / Right | Camera navigation history |
+| F3 / F4 | Performance / camera debug HUD |
 | Escape | Close dialog / cancel placement |
 | ? | Help |
 
 The palette accepts actions and “jump to YYYY-MM-DD”. Dialogs trap focus and restore it. Inputs are labeled; warnings include text. Reduced motion, high contrast, and text scaling are supported. Small screens use a horizontal toolbar and scrollable bottom sheet. The six-step onboarding tour is dismissible.
+
+## Observation, encounters and replay
+
+Observation and planet comparison report live geometry and physical properties. Toggle terminators, idealized restricted-three-body Lagrange markers and Hill spheres. Encounter operations previews velocity matching, bounded approach/hold assistance, escape and capture burns. Local maneuver components resolve in the current orbital basis at execution; orbit-line placement sets an osculating burn epoch. Closest approach is measured over actually integrated segments, including partial-horizon warnings.
+
+Mission replay records complete physical snapshots with fuel, stages and events. Playback is read-only and scrubs only captured states; Return to Live restores the saved live state. Limits are 240 snapshots, 32 MiB and 1,000 bodies. See [replay schema](docs/replay-schema.md). Date bookmarks reinitialize Reality and do not invent historical Sandbox states.
 
 ## Persistence and security
 
@@ -162,7 +171,7 @@ npm.cmd run build
 
 See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist.
 
-Detailed references: [physics](docs/physics.md), [architecture](docs/architecture.md), [rendering](docs/rendering.md), [missions](docs/missions.md), [API](docs/api.md), [scenario schema](docs/scenario-schema.md).
+Detailed references: [camera navigation](docs/camera-navigation.md), [replay](docs/replay-schema.md), [physics](docs/physics.md), [architecture](docs/architecture.md), [rendering](docs/rendering.md), [missions](docs/missions.md), [API](docs/api.md), [scenario schema](docs/scenario-schema.md).
 
 Texture authorship and license: [Solar System Scope / INOVE](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [local attribution](public/textures/ATTRIBUTION.md). The maps are static artwork based on scientific imagery, with adjusted colors and some reconstructed regions.
 

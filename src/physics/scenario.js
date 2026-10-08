@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, TYPES } from './body.js';
+import {validateNavigation,cameraMode,validPose} from '../navigation/settings.js';
 import { MIN_JD, MAX_JD } from './units.js';
 import { MAX_BODIES, MAX_MASSIVE, MAX_EVENTS } from './limits.js';
 import { DEFAULT_VIEW } from './catalog.js';
@@ -13,6 +14,9 @@ export function validateScenario(input) {
   require(s?.version === 1 || s?.version === 2, 'Unsupported scenario version');
   s.version=2;
   s.view={...structuredClone(DEFAULT_VIEW),...s.view,units:{...DEFAULT_VIEW.units,...s.view?.units}};
+  s.view.navigation=validateNavigation(s.view.navigation);s.view.cameraMode=cameraMode(s.view.cameraMode);
+  for(const [i,c] of s.view.savedCameras.entries()){c.id??='camera-'+i;c.name??='View '+(i+1);require(typeof c.id==='string'&&c.id.length<=80&&typeof c.name==='string'&&c.name.length<=80,'Invalid camera bookmark name');}
+  s.view.timeBookmarks??=[];require(Array.isArray(s.view.timeBookmarks)&&s.view.timeBookmarks.length<=100&&s.view.timeBookmarks.every(x=>typeof x.name==='string'&&x.name.length<=80&&finite(x.jd)&&x.jd>=MIN_JD&&x.jd<MAX_JD),'Invalid time bookmarks');
   s.tags??=[];s.description??='';s.provenance??={source:s.mode==='reality'?'jpl':'custom',epochJD:s.jd,note:'Migrated Phase 1 snapshot'};
   s.maneuvers??=[];s.stations??=[];s.telemetry??=[];s.mission??={name:s.name,epochJD:s.jd};
   require(['auto','low','medium','high','ultra'].includes(s.view.quality),'Invalid quality');
@@ -23,6 +27,8 @@ export function validateScenario(input) {
   require(Array.isArray(s.maneuvers)&&s.maneuvers.length<=256,'Too many maneuvers');
   for(const n of s.maneuvers)require(typeof n.id==='string'&&typeof n.bodyId==='string'&&finite(n.jd)&&finite(n.deltaV)&&n.deltaV>=0&&n.deltaV<=1e7
     &&['prograde','retrograde','in','out','normal','antinormal','vector'].includes(n.direction)&&vector(n.vector)&&typeof n.executed==='boolean','Invalid maneuver');
+  for(const n of s.maneuvers)require(Math.hypot(...n.vector)<=1e7,'Maneuver vector exceeds 10,000 km/s');
+  for(const n of s.maneuvers)if(n.components)require(vector(n.components)&&Math.hypot(...n.components)<=1e7,'Maneuver components must be transverse/prograde, normal and radial SI values');
   require(Array.isArray(s.stations)&&s.stations.length<=128,'Too many ground stations');
   for(const x of s.stations)require(typeof x.id==='string'&&typeof x.name==='string'&&typeof x.bodyId==='string'&&finite(x.latitude)&&Math.abs(x.latitude)<=90
     &&finite(x.longitude)&&Math.abs(x.longitude)<=180&&finite(x.altitude??0),'Invalid ground station');
@@ -62,6 +68,8 @@ export function validateScenario(input) {
     }
     if(b.spacecraft)require(b.spacecraft.range>0&&b.spacecraft.capacityWh>0&&b.spacecraft.battery>=0&&b.spacecraft.battery<=1
       &&b.spacecraft.solarWatts>=0&&b.spacecraft.loadWatts>=0&&vector(b.spacecraft.orientation),'Invalid spacecraft configuration');
+    if(b.spacecraft?.transmitterPower!==undefined)require(finite(b.spacecraft.transmitterPower)&&b.spacecraft.transmitterPower>=0&&b.spacecraft.transmitterPower<=1e12,'Invalid transmitter power');
+    if(b.spacecraft?.antennaGain!==undefined)require(finite(b.spacecraft.antennaGain)&&Math.abs(b.spacecraft.antennaGain)<=100,'Invalid antenna gain');
     b.collisionMode ??= 'inherit'; b.disrupted ??= false;
     require(['inherit','none','merge','bounce','fragment'].includes(b.collisionMode),'Invalid body collision mode');
     require(typeof b.disrupted==='boolean','Invalid disruption flag');
@@ -96,7 +104,7 @@ export function validateScenario(input) {
   for(const key of ['distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'])if(s.view[key]!==undefined)require(finite(s.view[key])&&s.view[key]>=.01&&s.view[key]<=1e6,'Invalid display scale: '+key);
   for(const key of ['realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
   require(Array.isArray(s.view.savedCameras)&&s.view.savedCameras.length<=100&&Array.isArray(s.view.keyframes)&&s.view.keyframes.length<=32,'Invalid camera collection');
-  for(const c of [...s.view.savedCameras,...s.view.keyframes,...(s.view.camera?[s.view.camera]:[])])require(vector(c.position)&&vector(c.target)&&['system','planetary','earth','vehicle','true'].includes(c.scale),'Invalid camera pose');
+  for(const c of [...s.view.savedCameras,...s.view.keyframes,...(s.view.camera?[s.view.camera]:[])])require((validPose(c)||vector(c.position)&&vector(c.target))&&['system','planetary','earth','vehicle','true'].includes(c.scale),'Invalid camera pose');
   s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
   const p = s.settings;
   require(['auto','direct','tree'].includes(p.solver),'Invalid gravity solver');
@@ -126,7 +134,7 @@ export function validateScenario(input) {
   const eventIds=new Set();
   for(const event of s.events) {
     require(Number.isSafeInteger(event.id)&&event.id>0&&event.id<=s.eventSerial&&!eventIds.has(event.id),'Invalid event ID');eventIds.add(event.id);
-    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova','soi','apsis','landing'].includes(event.kind),'Invalid event kind');
+    require(['merge','bounce','fragment','absorb','tidal','capture','traverse','staging','mission','burn','insertion','deploy','supernova','soi','apsis','landing','eclipse'].includes(event.kind),'Invalid event kind');
     require(finite(event.jd)&&event.jd>=MIN_JD&&event.jd<MAX_JD,'Invalid event date');
     require(typeof event.message==='string'&&event.message.length<=1000,'Invalid event message');
     require(Array.isArray(event.bodyIds)&&event.bodyIds.length<=16&&event.bodyIds.every(x=>typeof x==='string'&&x.length<=80),'Invalid event body IDs');

@@ -1,4 +1,5 @@
 import {flightEvents,applyFuelBurn} from './flight.js';
+import {sunlight,observingStar,signalLink} from './observations.js';
 import { stateAt } from './elements.js';
 import { diagnostics, accelerations, verlet, rk4, dormandPrince, accelerationTimestep } from './integrators.js';
 import { validateScenario } from './scenario.js';
@@ -9,7 +10,7 @@ import { realityBodies } from './catalog.js';
 import { interpolateVectors } from './ephemeris.js';
 import { propulsion, vehicleTelemetry, burnVector, communications, lineOfSight, clamp, rotateAxis, EARTH_ROTATION } from './vehicles.js';
 import { MAX_EVENTS, MAX_BODIES } from './limits.js';
-import { DAY, MIN_JD, MAX_JD, norm, add, sub, scale, cross, unit, EARTH_AXIS } from './units.js';
+import { DAY, MIN_JD, MAX_JD, norm, add, sub, scale, cross, unit, EARTH_AXIS,dot } from './units.js';
 
 export class Engine {
   load(scenario) {
@@ -18,6 +19,7 @@ export class Engine {
     this.energyScale=Math.abs(this.baseline.energy);this.angularScale=norm(this.baseline.angular);
     this.eventEnergyDelta=0;this.eventMassDelta=0;this.steps=0;this.topologyRevision=0;
     this.nextStep=this.s.settings.stepSeconds;this.lastTelemetryJD=-Infinity;
+    this.encounter=null;this.encounterPair=null;
     this.selectedId=this.s.view.selected;this.telemetryVersion=0;this.accepted=0;this.rejected=0;
   }
   log(kind,message,bodyIds,jd=this.s.jd,energyDelta=0,massDelta=0) {
@@ -52,9 +54,12 @@ export class Engine {
         }
       }
       if(b.spacecraft && dt>0) {
-        const sun=s.bodies.find(x=>x.type==='star'),target=sun?.position??add(b.position,[1e15,0,0]);
-        const illuminated=lineOfSight(b.position,target,s.bodies.filter(x=>x.id!==b.id&&x.id!==sun?.id&&!x.massless))==='connected';
-        const power=(illuminated?b.spacecraft.solarWatts:0)-b.spacecraft.loadWatts;
+        const sun=observingStar(s,b),light=sunlight(b,sun,s.bodies),illuminated=light.fraction>0;
+        const previousLight=b.spacecraft.sunlightState;
+        if(previousLight&&previousLight!==light.state)notify('eclipse',b.name+': '+previousLight+' → '+light.state+(light.occluder?' behind '+s.bodies.find(x=>x.id===light.occluder)?.name:''),[b.id,...(light.occluder?[light.occluder]:[])]);
+        b.spacecraft.sunlightState=light.state;b.spacecraft.solarFraction=light.fraction;
+        b.spacecraft.solarModel=sun.id==='assumed-sun'?'Assumed Sun at 1 AU along inertial +X':'Finite stellar disc, strongest single occulter';
+        const power=b.spacecraft.solarWatts*light.fraction-b.spacecraft.loadWatts;
         b.spacecraft.battery=clamp(b.spacecraft.battery+power*dt/(b.spacecraft.capacityWh*3600),0,1);
         b.spacecraft.illuminated=illuminated;
       }
@@ -100,6 +105,7 @@ export class Engine {
         if(p.integrator==='dopri')maximum=Math.min(maximum,this.nextStep);
         let dt=Math.sign(target)*Math.min(maximum,Math.abs(target-advanced));
         const previous=dt>0?new Map(s.bodies.map(b=>[b.id,[...b.position]])):null;
+        const encounterBodies=this.encounterPair?.map(id=>s.bodies.find(b=>b.id===id)),oldEncounter=encounterBodies?.every(Boolean)?{r:sub(encounterBodies[0].position,encounterBodies[1].position),v:sub(encounterBodies[0].velocity,encounterBodies[1].velocity)}:null;
         const splitPropulsion=s.bodies.some(b=>b.rocket && b.rocket.engineOn);
         if(dt>0&&splitPropulsion)this.vehicles(dt/2,jd);
         if(p.integrator==='dopri') {
@@ -110,6 +116,8 @@ export class Engine {
         } else (p.integrator==='rk4'?rk4:verlet)(s.bodies,dt,p);
         if(dt>0){for(const b of s.bodies)if(b.locked&&(b.rocket?.phase==='prelaunch'||b.metadata.surfaceBound)){const parent=s.bodies.find(x=>x.id===b.parentId),old=previous.get(b.parentId);if(parent&&old)b.position=add(b.position,sub(parent.position,old));}this.vehicles(splitPropulsion?dt/2:dt,jd+dt/DAY);}
         if(s.bodies.some(b=>!b.position.every(Number.isFinite)||!b.velocity.every(Number.isFinite)))throw new Error('Physics state overflow; reduce timestep');
+        if(oldEncounter){const [vehicle,targetBody]=encounterBodies,r=sub(vehicle.position,targetBody.position),change=sub(r,oldEncounter.r),fraction=Math.max(0,Math.min(1,-dot(oldEncounter.r,change)/(dot(change,change)||1))),distance=norm(add(oldEncounter.r,scale(change,fraction)));
+         if(!this.encounter||distance<this.encounter.distance)this.encounter={bodyId:vehicle.id,targetId:targetBody.id,distance,jd:s.jd+(advanced+dt*fraction)/DAY,relativeSpeed:norm(add(oldEncounter.v,scale(sub(sub(vehicle.velocity,targetBody.velocity),oldEncounter.v),fraction))),resolutionSeconds:Math.abs(dt),model:'Closest sampled integration segment; linear interpolation within a physics step.'};}
         advanced+=dt;lastDt=dt;steps++;
         if(dt>0) {
           const emit=(before,after,event)=>this.account(before,after,event,s.jd+advanced/DAY);
@@ -135,6 +143,8 @@ export class Engine {
     const delta=d.angular.map((x,i)=>x-this.baseline.angular[i]);
     const activePropulsion=s.bodies.some(b=>b.rocket&&b.rocket.engineOn);
     const warnings=[];
+    if(selected){const parent=s.bodies.find(b=>b.id===selected.parentId),t=parent?vehicleTelemetry(selected,parent,s.jd,p):null;if(t?.elements?.period&&lastDt>t.elements.period/40)warnings.push('TIMESTEP TOO LARGE: selected orbit has fewer than 40 steps per period.');if(t?.elements?.e>=1)warnings.push('ESCAPE TRAJECTORY: selected state is unbound relative to '+parent.name+'.');const stage=selected.rocket?.stages[selected.rocket.stage];if(stage&&stage.fuel/stage.capacity<.05)warnings.push('FUEL LOW: active stage retains less than 5% of its propellant capacity.');}
+    if(s.eventSerial-(this.previousEventSerial??s.eventSerial)>10)warnings.push('HIGH EVENT RATE: more than 10 collision/mission events in one batch.');this.previousEventSerial=s.eventSerial;
     if(p.gr)warnings.push('GR: dominant-primary 1PN approximation; Newtonian drift is not a conserved invariant.');
     if(d.externalConstraints)warnings.push('Pinned bodies introduce external constraints.');
     if(activePropulsion)warnings.push('Thrust, exhaust and drag exchange energy and momentum with the environment.');

@@ -1,4 +1,5 @@
 import {useState,useEffect} from 'react';
+import {focusCamera,systemCamera} from '../navigation/actions.js';
 import {useUIStore} from '../store/useUIStore.js';
 import {useSimStore} from '../store/useSimStore.js';
 import {derivedOrbit} from '../physics/orbital.js';
@@ -13,13 +14,7 @@ export function PlanetSwatch({body,size=40}) {
  const image=maps[body.id]??(body.material==='earth'?'earth_daymap':body.type==='moon'?'moon':null);
  return <span className={'planet-swatch '+(body.rings?'has-rings ':'')+(body.type==='star'?'is-star':'')} style={{'--size':size+'px','--planet-color':body.color,backgroundImage:image?'url(/textures/'+image+'.jpg)':undefined}}/>;
 }
-export function focusBody(id) {
- const sim=useSimStore.getState(),b=sim.scenario.bodies.find(b=>b.id===id);
- if(!b)return;
- if(!useUIStore.getState().navigation.length){const v=sim.scenario.view;useUIStore.getState().remember({selected:v.selected,scale:v.scale,cameraMode:v.cameraMode});}
- useUIStore.getState().remember({selected:id,scale:'vehicle',cameraMode:'follow'});
- sim.configureView({selected:id,scale:'vehicle',camera:null,cameraMode:'follow',focusRevision:(sim.scenario.view.focusRevision??0)+1});
-}
+export function focusBody(id,mode='orbit'){focusCamera(id,mode);}
 const descriptions={
  sun:'Our system’s central star. Its gravity binds the planets, moons and smaller bodies into a single moving system.',
  mercury:'A cratered, airless world on the shortest planetary orbit. A useful laboratory for the weak-field GR correction.',
@@ -60,13 +55,13 @@ export function BodyNavigator(){
  const major=s.bodies.filter(x=>!x.disrupted&&(!x.massless||x.spacecraft||x.rocket)).slice(0,200);
  const list=family==='local'?[localPrimary,...s.bodies.filter(x=>x.parentId===localPrimary?.id)].filter(Boolean):family==='vehicles'?s.bodies.filter(x=>x.rocket||x.spacecraft):major;
  return <section className="body-navigator" aria-label="Object navigator"><div className="navigator-heading"><span className="eyebrow">Navigate</span><div className="navigator-filters">{[['primary','System'],['local','Moons'],['vehicles','Vehicles']].map(([key,label])=><button key={key} className={family===key?'active':''} onClick={()=>setFamily(key)}>{label}</button>)}</div><button aria-label="Hide navigator" onClick={()=>useUIStore.getState().workspace({left:false})}>×</button></div>
- <input aria-label="Search objects" placeholder="Search objects…" value={search} onChange={e=>setSearch(e.target.value)}/><button className="system-navigation" onClick={()=>{useUIStore.getState().remember({scale:'system',cameraMode:'orbit',selected:s.view.selected});sim.configureView({scale:'system',cameraMode:'orbit',camera:null});}}>◎ Solar System</button><div className="body-strip">{list.filter(x=>x.name.toLowerCase().includes(search.toLowerCase())).map(x=><button key={x.id} aria-label={'Explore '+x.name} aria-pressed={x.id===s.view.selected} className={'body-tile '+(x.id===s.view.selected?'selected':'')} onClick={()=>{focusBody(x.id);}}><PlanetSwatch body={x} size={22}/><span>{x.name}</span>{x.id===s.view.selected&&<span className="selection-dot"/>}</button>)}{!list.length&&<div className="navigator-empty">No {family==='vehicles'?'vehicles':'moons'} in this selection. Open Scenarios to explore more.</div>}</div></section>;
+ <input aria-label="Search objects" placeholder="Search objects…" value={search} onChange={e=>setSearch(e.target.value)}/><button className="system-navigation" onClick={()=>{systemCamera();}}>◎ Solar System</button><div className="body-strip">{list.filter(x=>x.name.toLowerCase().includes(search.toLowerCase())).map(x=><button key={x.id} aria-label={'Explore '+x.name} aria-pressed={x.id===s.view.selected} className={'body-tile '+(x.id===s.view.selected?'selected':'')} onClick={()=>sim.configureView({selected:x.id})} onDoubleClick={()=>focusBody(x.id)}><PlanetSwatch body={x} size={22}/><span>{x.name}</span>{x.id===s.view.selected&&<span className="selection-dot"/>}</button>)}{!list.length&&<div className="navigator-empty">No {family==='vehicles'?'vehicles':'moons'} in this selection. Open Scenarios to explore more.</div>}</div></section>;
 }
 export function ViewportControls(){
  const sim=useSimStore(),s=sim.scenario,b=s.bodies.find(x=>x.id===s.view.selected),tool=useUIStore(x=>x.tool);
  return <>{tool!=='select'&&<div className="placement-banner"><Icon name="tools"/><span>{tool==='spawn'?'Click to place; drag to set velocity.':tool==='move'?'Click and drag to move the selected object.':'Drag to add velocity to the selected object.'}</span><button onClick={()=>useUIStore.getState().update({tool:'select',placementPreview:null})}>Cancel <kbd>Esc</kbd></button></div>}<div className="viewport-heading"><div className="eyebrow">{s.view.scale==='system'?'System overview':s.view.scale==='earth'?'Earth orbital environment':'Object observation'}</div><h2>{s.view.scale==='system'?'Solar system':b?.name??s.name}</h2><span>{s.mode==='reality'?'Ephemeris':'N-body simulation'} <span className="text-separator">/</span> J2000 ecliptic</span></div>
- <div className="viewport-actions" aria-label="Viewport controls"><button title="View whole system" aria-label="View whole system" className={s.view.scale==='system'?'active':''} onClick={()=>sim.configureView({scale:'system',cameraMode:'orbit',camera:null,focusRevision:(s.view.focusRevision??0)+1})}><Icon name="orbit"/></button><button title="Frame selection" aria-label="Frame selection" onClick={()=>b&&focusBody(b.id)}><Icon name="focus"/></button><span/><button title="Toggle orbit paths" aria-label="Toggle orbit paths" aria-pressed={s.view.orbits} className={s.view.orbits?'active':''} onClick={()=>sim.configureView({orbits:!s.view.orbits})}><Icon name="analysis"/></button><button title="Toggle labels" aria-label="Toggle labels" aria-pressed={s.view.labels} onClick={()=>sim.configureView({labels:!s.view.labels})}>Aa</button><button title="Save viewport screenshot" aria-label="Save viewport screenshot" onClick={()=>{try{captureScreenshot();}catch(e){sim.fail(e.message);}}}><Icon name="camera"/></button></div>
- <div className="viewport-guide"><span><Icon name="explore" size={13}/>Drag to orbit</span><span>Scroll to zoom</span><span className="hide-mobile"><kbd>F</kbd> Frame selection</span></div>
+ <div className="viewport-actions" aria-label="Viewport controls"><button title="View whole system" aria-label="View whole system" className={s.view.scale==='system'?'active':''} onClick={()=>systemCamera()}><Icon name="orbit"/></button><button title="Frame selection" aria-label="Frame selection" onClick={()=>b&&focusBody(b.id)}><Icon name="focus"/></button><span/><button title="Toggle orbit paths" aria-label="Toggle orbit paths" aria-pressed={s.view.orbits} className={s.view.orbits?'active':''} onClick={()=>sim.configureView({orbits:!s.view.orbits})}><Icon name="analysis"/></button><button title="Toggle labels" aria-label="Toggle labels" aria-pressed={s.view.labels} onClick={()=>sim.configureView({labels:!s.view.labels})}>Aa</button><button title="Save viewport screenshot" aria-label="Save viewport screenshot" onClick={()=>{try{captureScreenshot();}catch(e){sim.fail(e.message);}}}><Icon name="camera"/></button></div>
+ <div className="viewport-guide"><span><Icon name="explore" size={13}/>{s.view.cameraMode==='free'?'WASDQE · drag to look':'Drag to orbit'}</span><span>Scroll to zoom</span><span className="hide-mobile"><kbd>F</kbd> Frame selection</span></div>
  </>;
 }
 export function ScenarioArt({preset}){

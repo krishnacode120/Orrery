@@ -1,12 +1,15 @@
 import {AU} from '../physics/units.js';
+import {getRenderFrame} from '../navigation/renderFrame.js';
 // Display transforms never modify the worker's Float64 SI coordinates.
-export function viewSpace(s) {
+export function viewSpace(s,useCameraFrame=true) {
  const selected=s.bodies.find(b=>b.id===s.view.selected),parent=s.bodies.find(b=>b.id===selected?.parentId);
  let unit=AU/4,origin=s.bodies.find(b=>b.id==='sun')?.position??[0,0,0];
  if(s.view.scale==='earth'){const earth=s.bodies.find(b=>b.id==='earth')??parent??selected;unit=(earth?.radius??6371000)/4;origin=earth?.position??origin;}
  if(s.view.scale==='planetary'){const p=selected?.type==='moon'||selected?.spacecraft||selected?.rocket?parent??selected:selected;unit=Math.max((p?.radius??6371000)*2,1);origin=p?.position??origin;}
  if(['vehicle','true'].includes(s.view.scale)){unit=Math.max(selected?.radius??10,1)/2;origin=selected?.position??origin;}
  const compressed=s.view.scale==='system'&&s.view.realDistances===false;
+ const frame=useCameraFrame?getRenderFrame():null;
+ if(frame&&!compressed){unit=frame.unit;origin=frame.origin;}
  const distanceScale=s.view.scaleMode==='custom'?(s.view.distanceScale??1):1;
  const transform=p=>{
   let v=[(p[0]-origin[0])/unit,(p[2]-origin[2])/unit,-(p[1]-origin[1])/unit],r=Math.hypot(...v);

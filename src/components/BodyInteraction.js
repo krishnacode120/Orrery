@@ -3,6 +3,7 @@ import {useThree} from '@react-three/fiber';
 import {Plane,Vector3} from 'three';
 import {useSimStore} from '../store/useSimStore.js';
 import {useUIStore} from '../store/useUIStore.js';
+import {useCameraStore} from '../store/useCameraStore.js';
 import {viewSpace} from './viewSpace.js';
 import {sub,add} from '../physics/units.js';
 export function useBodyDrag(body){
@@ -15,10 +16,10 @@ export function useBodyDrag(body){
   return()=>{unsubscribe();window.removeEventListener('keydown',key);window.removeEventListener('blur',cancel);cancel();};
  },[]);
  return {
- onContextMenu:e=>{e.stopPropagation();e.nativeEvent?.preventDefault();useUIStore.getState().update({context:{id:body.id,x:e.clientX,y:e.clientY}});},
+ onContextMenu:e=>{if(performance.now()<(useCameraStore.getState().suppressPickUntil??0))return;e.stopPropagation();e.nativeEvent?.preventDefault();useUIStore.getState().update({context:{id:body.id,x:e.clientX,y:e.clientY}});},
  onPointerDown:e=>{
   if(!(e.ctrlKey||e.shiftKey))return;
-  const sim=useSimStore.getState();if(sim.scenario.mode!=='sandbox')return;e.stopPropagation();
+  const sim=useSimStore.getState();if(sim.scenario.mode!=='sandbox'||['free','surface','target-lock'].includes(sim.scenario.view.cameraMode))return;e.stopPropagation();
   const space=viewSpace(sim.scenario),plane=new Plane().setFromNormalAndCoplanarPoint(camera.getWorldDirection(new Vector3()),new Vector3(...space.transform(body.position)));
   const hit=e.ray.intersectPlane(plane,new Vector3());if(!hit)return;
   drag.current={plane,space,point:space.inverse(hit.toArray()),position:[...body.position],velocity:[...body.velocity],throwing:e.shiftKey,paused:sim.paused,target:e.target,pointerId:e.pointerId};

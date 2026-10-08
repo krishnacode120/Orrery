@@ -1,4 +1,5 @@
 import {ScaleControls} from './WorkspaceControls.jsx';
+import CameraPanel from './CameraPanel.jsx';
 import {useState} from 'react';
 import {useSimStore} from '../store/useSimStore.js';
 import {NumberField,Select,Toggle,Readouts,fmt} from './Fields.jsx';
@@ -25,7 +26,7 @@ export default function Settings({run}) {
  <div className="grid">{[['showMoons','Show moon systems'],['showSOI','Sphere of influence'],['autoArrival','Focus destination on SOI entry'],['transferPath','Transfer overlay'],['predictionPaths','Predicted paths'],['showAcceleration','Gravity vector'],['showBarycenter','System barycenter'],['miniMap','Navigation map'],['pip','Picture-in-picture'],['labels','Labels'],['orbits','Orbit paths'],['trails','History trails'],['markers','Orbital markers'],['vectors','Velocity vectors'],['plane','Orbital plane'],['bloom','Restrained bloom'],['highContrast','High contrast'],['reducedMotion','Reduced motion']].map(([k,label])=><Toggle key={k} label={label} value={v[k]} commit={x=>view(k,x)}/>)}</div>
  <Select label="Gravity grid · visual analogy" value={v.gravityGrid??'off'} options={['off','low','medium','high']} commit={x=>view('gravityGrid',x)}/><NumberField label="Text scale" value={v.textScale} commit={x=>view('textScale',Math.max(.9,Math.min(1.5,x)))}/>
  <div className="grid">{[['mass',['kg','M⊕','M☉']],['length',['m','km','AU']],['radius',['m','km','R⊕','R☉']],['velocity',['m/s','km/s']],['time',['s','d','yr']],['angle',['deg','rad']]].map(([key,options])=><Select key={key} label={key+' units'} value={v.units[key]} options={options} commit={x=>view('units',{...v.units,[key]:x})}/>)}</div></div></details>}
- {tab==="camera"&&<details open><summary>Camera and capture</summary><div className="stack"><Select label="Camera mode" value={v.cameraMode} options={['orbit','follow','chase','rocket chase','satellite chase','side','nose','destination','free','flyby','cinematic']} commit={x=>view('cameraMode',x)}/>
+ {tab==="camera"&&<details open><summary>Camera and capture</summary><div className="stack"><CameraPanel run={run}/>
  <div className="grid"><button onClick={()=>{saveViewpoint();const camera=useSimStore.getState().scenario.view.camera;if(camera)view('savedCameras',[...v.savedCameras,{...camera,name:'View '+(v.savedCameras.length+1)}].slice(-100));}}>Save viewpoint</button>
  <button onClick={()=>{saveViewpoint();const camera=useSimStore.getState().scenario.view.camera;if(camera)view('keyframes',[...v.keyframes,camera].slice(-32));}}>Add keyframe</button></div>
  <small>{v.keyframes.length} camera keyframes. Cinematic mode interpolates eight seconds per segment.</small>

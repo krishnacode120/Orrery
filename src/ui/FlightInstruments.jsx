@@ -19,7 +19,7 @@ export function FlightInstruments({body:b,parent,s,run}){
  <button onClick={circularize}>Plan circularization burn</button>
  {b.rocket&&<Readouts values={[['Active stage Δv',fmt(budget.stages[0]/1000,3)+' km/s'],['Remaining staged Δv',fmt(budget.total/1000,3)+' km/s'],['Mass flow',fmt((b.rocket.actualThrust??0)/(b.rocket.stages[b.rocket.stage].isp*9.80665),2)+' kg/s']]}/>}
  {target&&<Readouts values={[['Destination',target.name],['Distance to target',fmt(norm(sub(target.position,b.position))/1000)+' km'],['Relative speed',fmt(norm(sub(target.velocity,b.velocity))/1000,3)+' km/s']]}/>}
- <Select label="Vehicle camera" value={s.view.cameraMode} options={['orbit','follow','rocket chase','satellite chase','chase','side','nose','destination','cinematic']} commit={cameraMode=>sim.configureView({cameraMode})}/>
+ <Select label="Vehicle camera" value={s.view.cameraMode} options={['free','orbit','follow','rocket','satellite','chase','target-lock','surface','cinematic']} commit={cameraMode=>sim.configureView({cameraMode})}/>
  <Toggle label="Detect landing / impact" value={vehicle.landingEnabled??false} commit={v=>set('landingEnabled',v)}/><small>Landing is a surface-contact model with a 5 m/s safe-touchdown threshold. A powered descent requires manual throttle and attitude control.</small>
  <button onClick={()=>sim.configureView({panel:'planner'})}>Plan interplanetary transfer</button>
  </div>;

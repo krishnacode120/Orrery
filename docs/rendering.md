@@ -14,6 +14,10 @@ Auto quality samples frame intervals once per second and adapts no more frequent
 
 The tracking inset uses a scissored second camera in the same WebGL context, after the main/postprocessed pass. A single frame callback owns the composer/main pass and inset pass. Canvas memoization prevents UI state changes from reconfiguring its pixel ratio; DPR updates occur only on a quality change. Renderer viewport, scissor and temporary visibility/uniform changes are restored after each inset draw. Hidden UI suppresses the inset. This avoids competing Canvas contexts.
 
-Camera modes share OrbitControls. Scale transitions convert the old camera through Float64 SI, then ease distance logarithmically. Framing accounts for visible side panels. Follow modes translate with the target; chase uses velocity-relative framing. Free flight uses WASD/QE. Cinematic mode interpolates saved camera keyframes or follows an orbit. Viewpoints are scale-specific and persisted.
+The navigation controller owns a Float64 SI pose. CameraRig is the only writer to the visible camera; OrbitControls operates on an isolated proxy only in orbit/follow modes. Free flight uses yaw/pitch and local movement axes. Focus uses object extent and FOV, with cancellable staged cross-scale travel. Selection and panel changes do not reposition the camera. Bookmarks retain SI position, quaternion, mode, target, FOV and reference frame. See camera-navigation.md.
+
+CameraRig publishes a camera-relative origin and render unit before other frame callbacks. Bodies and instanced particles subtract that origin using Float64 state. FrameGroup rebases static orbit lines, labels and launch-site buffers from their construction frame. Radius scaling follows unit changes without remounting body meshes. Educational compressed coordinates remain an explicit display approximation. Screen-space picking uses a small invisible hit tolerance without enlarging the rendered body.
+
+The F3 overlay reports frame intervals and CPU renderer submission time; GPU completion time is explicitly unavailable. F4 reports the authoritative camera pose, reference, clipping, speed and origin.
 
 Capture uses canvas PNG and a browser MediaRecorder stream of a resampled viewport canvas. UI overlay capture is not implemented. No capture feature claims an exact delivery frame rate, bit-exact output or support in every browser.

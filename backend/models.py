@@ -85,6 +85,8 @@ class SpacecraftConfig(ConfigBlock):
     orientation: Vec3
     epochJD: FiniteFloat
     payload: Literal['standby','active','off']
+    transmitterPower: FiniteFloat = Field(default=20, ge=0, le=1e12)
+    antennaGain: FiniteFloat = Field(default=30, ge=-100, le=100)
 
 class WormholeConfig(ConfigBlock):
     pairId: str = Field(min_length=1,max_length=80)
@@ -106,6 +108,13 @@ class Maneuver(ConfigBlock):
     deltaV: FiniteFloat = Field(ge=0,le=1e7)
     vector: Vec3
     executed: bool
+    components: Vec3 | None = None
+
+    @model_validator(mode='after')
+    def bounded_burn(self):
+        if math.hypot(*self.vector) > 1e7 or self.components is not None and math.hypot(*self.components) > 1e7:
+            raise ValueError('Maneuver exceeds supported delta-v')
+        return self
 
 class Station(ConfigBlock):
     id: str = Field(min_length=1,max_length=80)
@@ -116,9 +125,37 @@ class Station(ConfigBlock):
     altitude: FiniteFloat = Field(default=0,ge=0)
 
 class CameraState(ConfigBlock):
-    position: Vec3
-    target: Vec3
+    name: str | None = Field(default=None, max_length=80)
+    id: str | None = Field(default=None, max_length=80)
+    position: Vec3 | None = None
+    target: Vec3 | None = None
+    positionSI: Vec3 | None = None
+    targetSI: Vec3 | None = None
+    orientation: tuple[FiniteFloat, FiniteFloat, FiniteFloat, FiniteFloat] | None = None
+    mode: Literal['free','orbit','follow','chase','target-lock','cinematic','surface','rocket','satellite'] | None = None
+    fov: FiniteFloat = Field(default=42, ge=.1, le=120)
     scale: Literal['system','planetary','earth','vehicle','true']
+
+    @model_validator(mode='after')
+    def complete_pose(self):
+        if self.positionSI is not None:
+            if self.targetSI is None or self.orientation is None or self.mode is None or math.hypot(*self.orientation) < .001:
+                raise ValueError('Incomplete inertial camera pose')
+        elif self.position is None or self.target is None:
+            raise ValueError('Incomplete legacy camera pose')
+        return self
+
+class NavigationConfig(ConfigBlock):
+    speed: FiniteFloat = Field(default=1495978707, ge=.01, le=1495978707000)
+    fov: FiniteFloat = Field(default=42, ge=.1, le=120)
+    chaseOrientation: Literal['velocity','attitude'] = 'velocity'
+    vertical: Literal['camera','world'] = 'world'
+    reference: Literal['inertial','sun','planet','moon','spacecraft','velocity'] = 'inertial'
+    sensitivity: FiniteFloat = Field(default=.0025, ge=.0001, le=.05)
+    translationDamping: FiniteFloat = Field(default=8, ge=0, le=100)
+    rotationDamping: FiniteFloat = Field(default=14, ge=0, le=100)
+    zoomDamping: FiniteFloat = Field(default=10, ge=0, le=100)
+    followDamping: FiniteFloat = Field(default=5, ge=0, le=100)
 
 
 class Body(StrictModel):
@@ -226,7 +263,7 @@ class Settings(StrictModel):
 class PhysicalEvent(StrictModel):
     id: int = Field(gt=0, le=9007199254740991)
     jd: FiniteFloat = Field(ge=2378496.5, lt=2470172.5)
-    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova', 'soi', 'apsis', 'landing']
+    kind: Literal['merge', 'bounce', 'fragment', 'absorb', 'tidal', 'capture', 'traverse', 'staging', 'mission', 'burn', 'insertion', 'deploy', 'supernova', 'soi', 'apsis', 'landing', 'eclipse']
     bodyIds: list[Annotated[str, Field(max_length=80)]] = Field(max_length=16)
     message: str = Field(max_length=1000)
     energyDelta: FiniteFloat
@@ -292,6 +329,11 @@ class Scenario(StrictModel):
         for key in ('realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'):
             if key in self.view and not isinstance(self.view[key], bool):
                 raise ValueError('Invalid view flag: '+key)
+        if self.view.get('navigation'):
+            NavigationConfig.model_validate(self.view['navigation'])
+        time_bookmarks=self.view.get('timeBookmarks',[])
+        if not isinstance(time_bookmarks,list) or len(time_bookmarks)>100 or any(not isinstance(x,dict) or not isinstance(x.get('name'),str) or len(x['name'])>80 or not isinstance(x.get('jd'),(int,float)) or not 2378496.5<=x['jd']<2470172.5 for x in time_bookmarks):
+            raise ValueError('Invalid time bookmarks')
         cameras=self.view.get('savedCameras',[])+self.view.get('keyframes',[])
         if len(cameras)>132:
             raise ValueError('Too many camera states')

@@ -1,8 +1,9 @@
 import { Engine } from './engine.js';
 import { DAY } from './units.js';
 // Bounded prediction: return the actually reached horizon, never fabricated paths.
-export function predict(scenario,{duration=DAY*30,resolution=120,ids=[],maxMs=1800}={}) {
+export function predict(scenario,{duration=DAY*30,resolution=120,ids=[],maxMs=1800,targetId=scenario.view?.targetId}={}) {
   const engine=new Engine();engine.load({...scenario,mode:'sandbox',telemetry:[]});
+  if(targetId&&ids[0]&&targetId!==ids[0]&&scenario.bodies.some(b=>b.id===targetId))engine.encounterPair=[ids[0],targetId];
   const chosen=ids.length?ids:scenario.bodies.filter(b=>!b.massless).slice(0,12).map(b=>b.id);
   const paths=Object.fromEntries(chosen.map(id=>[id,[]]));
   const started=performance.now(),startJD=engine.s.jd,target=Math.max(1,duration);
@@ -18,5 +19,5 @@ export function predict(scenario,{duration=DAY*30,resolution=120,ids=[],maxMs=18
   }
   for(const id of chosen){const b=engine.s.bodies.find(x=>x.id===id);if(b)paths[id].push({jd:engine.s.jd,position:[...b.position]});}
   return {paths,startJD,advanced,requested:target,complete:advanced>=target-1e-3,
-    events:engine.s.events.filter(e=>e.jd>=startJD),elapsedMs:performance.now()-started};
+    closestApproach:engine.encounter,events:engine.s.events.filter(e=>e.jd>=startJD),elapsedMs:performance.now()-started};
 }

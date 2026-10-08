@@ -8,6 +8,7 @@ import { useSimStore } from './store/useSimStore.js';
 import { connectWorker } from './physics/workerApi.js';
 import { api, localScenario } from './persistence.js';
 import { usePrediction } from './usePrediction.js';
+import {useReplay} from './useReplay.js';
 
 class SceneBoundary extends Component {
   state = { error: null };
@@ -18,7 +19,7 @@ class SceneBoundary extends Component {
 }
 
 export default function App() {
-  usePrediction();
+  usePrediction();useReplay();
   const panel=useSimStore(state=>!!state.scenario.view.panel),ui=useUIStore();
   const [ready,setReady] = useState(false), [storageError,setStorageError] = useState('');
   useEffect(() => {

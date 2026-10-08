@@ -6,7 +6,9 @@ The main thread owns editing intent; the physics worker owns integrated state be
 
 Shared transport has Float64 state (x,y,z,vx,vy,vz) and Float32 system-render positions. The worker writes only while its RPC is outstanding. The client copies the completed range before allowing another write. Stale scenario revisions are discarded. Fallback transfers completed ArrayBuffers and uses the same revision checks. Topology metadata and counts belong to one completed frame.
 
-Local/vehicle rendering uses the copied Float64 positions to subtract a camera origin before casting into Three.js coordinates. It does not attempt to recover sub-meter precision from heliocentric Float32 data.
+Rendering uses copied Float64 positions to subtract the authoritative camera origin before casting into Three.js coordinates. It does not attempt to recover sub-meter precision from heliocentric Float32 data. NavigationController is independent of React; CameraRig bridges one active controller into the visible camera. A separate display-frame module coordinates dynamic meshes and rebased static buffers.
+
+Replay holds exact validated scenario snapshots separately from the live simulation. Entering playback saves the live state, bumps its revision and suspends worker dispatch. In-flight frames fail the revision/replay guard. Scrubbing selects captured snapshots and blocks physics edits; exiting restores the saved live state with another revision. The viewer camera remains independently navigable. See replay-schema.md.
 
 Physics modules have no React/browser dependencies except performance.now as a monotonic budget clock. workerCore is directly testable without a browser. Prediction uses a distinct worker and cloned engine, so it cannot mutate live bodies or monopolize the simulation worker. Edit/prediction debouncing cancels stale work. Its wall-time budget returns partial truthful horizons.
 

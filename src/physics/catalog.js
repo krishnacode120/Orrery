@@ -1,3 +1,4 @@
+import {CAMERA_DEFAULTS} from '../navigation/settings.js';
 import {transferPlan,sphereOfInfluence} from './transfers.js';
 import { body, solarSystem, DEFAULT_SETTINGS } from './body.js';
 import { G, AU, DAY, EARTH_MASS, EARTH_RADIUS, EARTH_AXIS, SOLAR_MASS, OBLIQUITY, julianDate, add, scale, cross, unit } from './units.js';
@@ -66,7 +67,7 @@ export function spacecraftAt(primary,orbit={},index=0,jd=julianDate()) {
 export const DEFAULT_VIEW={quality:'auto',exaggeration:1500,scale:'system',cameraMode:'orbit',labels:true,
   bloom:true,orbits:true,trails:true,vectors:false,markers:true,plane:false,links:false,showHill:false,showRoche:false,
   selected:'earth',panel:null,workspaceVersion:4,scaleMode:'visibility',realDistances:true,realRadii:false,distanceScale:1,planetScale:1500,moonScale:1500,spacecraftScale:10000,trailScale:1,labelScale:1,showMoons:true,showSOI:false,predictionPaths:true,transferPath:true,autoArrival:true,gravityGrid:'off',showAcceleration:false,showBarycenter:false,miniMap:false,miniMapMode:'system',pip:false,units:{mass:'kg',length:'km',radius:'km',velocity:'km/s',time:'d',angle:'deg'},
-  textScale:1,highContrast:false,reducedMotion:false,camera:null,keyframes:[],savedCameras:[],exposure:1};
+  navigation:{...CAMERA_DEFAULTS},timeBookmarks:[],showLagrange:false,terminator:false,textScale:1,highContrast:false,reducedMotion:false,camera:null,keyframes:[],savedCameras:[],exposure:1};
 export function baseScenario(name='Solar system') {
   const jd=julianDate();
   return {version:2,name,mode:'sandbox',jd,bodies:[],settings:{...DEFAULT_SETTINGS},events:[],eventSerial:0,

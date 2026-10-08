@@ -1,5 +1,6 @@
 import { G, DAY, EARTH_AXIS, J2000, add, sub, scale, unit, norm, dot, cross } from './units.js';
 import { orbitalElements } from './orbital.js';
+import {signalLink} from './observations.js';
 export const G0=9.80665;
 export const EARTH_ROTATION=7.2921150e-5;
 export const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -20,6 +21,12 @@ export function bodyFixed(position,primary,jd){
  return {latitude:Math.asin(clamp(dot(unit(r),axis),-1,1))*180/Math.PI,longitude:Math.atan2(dot(r,east),dot(r,zero))*180/Math.PI};
 }
 export function stationPosition(station,primary,jd) {
+  if(primary.id!=='earth'){
+    const axis=unit(primary.spin.axis),lat=station.latitude*Math.PI/180,lon=station.longitude*Math.PI/180;
+    let east=unit(cross(axis,[1,0,0]));if(norm(cross(axis,[1,0,0]))<.1)east=unit(cross(axis,[0,1,0]));const zero=unit(cross(east,axis));
+    const local=add(scale(add(scale(zero,Math.cos(lon)),scale(east,Math.sin(lon))),Math.cos(lat)),scale(axis,Math.sin(lat)));
+    return add(primary.position,rotateAxis(scale(local,primary.radius+(station.altitude??0)),axis,(jd-J2000)*DAY*2*Math.PI/primary.spin.period));
+  }
   const lat=station.latitude*Math.PI/180,lon=station.longitude*Math.PI/180;
   const v=[Math.cos(lat)*Math.cos(lon),Math.cos(lat)*Math.sin(lon)*EARTH_AXIS[2],
     Math.cos(lat)*Math.sin(lon)*(-EARTH_AXIS[1])];
@@ -40,10 +47,10 @@ export function communications(body,bodies,stations,jd) {
   const links=[];
   if(primary)for(const station of stations??[])if(station.bodyId===primary.id) {
     const position=stationPosition(station,primary,jd);
-    links.push({id:station.id,name:station.name,position,status:lineOfSight(body.position,position,bodies.filter(b=>b.id!==body.id&&!b.massless),range)});
+    links.push({id:station.id,name:station.name,position,...signalLink(body,{id:station.id,position},bodies,{range,power:body.spacecraft?.transmitterPower??20,transmitGain:body.spacecraft?.antennaGain??30})});
   }
   for(const other of bodies.filter(b=>b.id!==body.id&&b.spacecraft).slice(0,64))
-    links.push({id:other.id,name:other.name,position:other.position,status:lineOfSight(body.position,other.position,bodies.filter(b=>b.id!==body.id&&b.id!==other.id&&!b.massless),Math.min(range,other.spacecraft.range))});
+    links.push({id:other.id,name:other.name,position:other.position,...signalLink(body,other,bodies,{range:Math.min(range,other.spacecraft.range),power:body.spacecraft?.transmitterPower??20,transmitGain:body.spacecraft?.antennaGain??30,receiveGain:other.spacecraft.antennaGain??30})});
   return links;
 }
 export function vehicleTelemetry(body,primary,jd,settings={}) {
@@ -151,5 +158,6 @@ export function burnVector(body,primary,node) {
   const radial=unit(sub(body.position,primary.position)),v=sub(body.velocity,primary.velocity);
   const normal=unit(cross(radial,v)),prograde=unit(v);
   const axes={prograde,retrograde:scale(prograde,-1),out:radial,in:scale(radial,-1),normal,antinormal:scale(normal,-1)};
+  if(node.components)return add(add(scale(prograde,node.components[0]),scale(normal,node.components[1])),scale(radial,node.components[2]));
   return node.direction==='vector'?[...node.vector]:scale(axes[node.direction]??prograde,node.deltaV);
 }

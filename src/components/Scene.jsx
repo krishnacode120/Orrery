@@ -1,9 +1,14 @@
+import {uid} from '../store/actions.js';
 import {useBodyDrag} from './BodyInteraction.js';
 import {ScienceOverlays,AdaptiveLabels} from './ScienceOverlays.jsx';
 import CameraRig from './CameraRig.jsx';
+import FrameGroup from './FrameGroup.jsx';
+import {useCameraStore} from '../store/useCameraStore.js';
+import {focusCamera} from '../navigation/actions.js';
+import Picking from './Picking.jsx';
 import {memo,Suspense,useMemo,useRef,useEffect} from 'react';
 import {Canvas,useFrame,useThree} from '@react-three/fiber';
-import {Html,Line,OrbitControls,useTexture} from '@react-three/drei';
+import {Html,Line,useTexture} from '@react-three/drei';
 import {Bloom,EffectComposer} from '@react-three/postprocessing';
 import {Vector3,Quaternion,Color,Object3D,DoubleSide,BackSide,AdditiveBlending,ACESFilmicToneMapping,NoToneMapping,UnsignedByteType,PerspectiveCamera,WebGLRenderTarget,BufferAttribute,SRGBColorSpace} from 'three';
 import {useSimStore} from '../store/useSimStore.js';
@@ -18,7 +23,7 @@ import {Atmosphere,PlanetRings,SolarHalo} from './CelestialEffects.jsx';
 import {viewSpace,displayRadius} from './viewSpace.js';
 import {vertex,planetFragment,atmosphereFragment,diskFragment,lensFragment,portalFragment} from '../shaders/materials.js';
 
-const select=id=>useSimStore.getState().configureView({selected:id});
+const select=id=>{if(performance.now()<(useCameraStore.getState().suppressPickUntil??0))return;useSimStore.getState().configureView({selected:id});};
 function Starfield() {
  const points=useMemo(()=>{const p=[],c=[];let seed=92313;const rng=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
  for(let i=0;i<3200;i++){const z=rng()*2-1,a=rng()*Math.PI*2,r=Math.sqrt(1-z*z);p.push(r*Math.cos(a)*900,z*900,r*Math.sin(a)*900);
@@ -57,14 +62,14 @@ function BodyMesh({body}) {
  const surface=useRef(),group=useRef(),disk=useRef(),beam=useRef();
  const diskUniforms=useMemo(()=>({time:{value:0},doppler:{value:body.blackHole?.doppler?1:0},temperature:{value:body.blackHole?.temperature??15000}}),[body.blackHole?.doppler,body.blackHole?.temperature]);
  useFrame(({clock})=>{if(!group.current)return;const state=useSimStore.getState().scenario,b=state.bodies.find(x=>x.id===body.id);if(!b)return;
- group.current.position.fromArray(viewSpace(state).transform(b.position));
+ const active=viewSpace(state);group.current.position.fromArray(active.transform(b.position));group.current.scale.setScalar(space.unit/active.unit*active.distanceScale/space.distanceScale);
  if(surface.current)surface.current.rotation.y=(state.jd*DAY/b.spin.period%1)*Math.PI*2;
  diskUniforms.time.value=clock.elapsedTime;if(beam.current)beam.current.rotation.y=clock.elapsedTime*8;});
  if(!body.visible)return null;
  const dark=body.type==='blackHole',vehicle=!!body.rocket||!!body.spacecraft;
  const nearestStar=s.bodies.filter(b=>b.type==='star').sort((a,b)=>norm(sub(a.position,body.position))-norm(sub(b.position,body.position)))[0];
  const tail=unitVector(nearestStar?sub(body.position,nearestStar.position):[1,0,0]),tailDirection=new Vector3(tail[0],tail[2],-tail[1]);
- return <group name={'body-'+body.id} {...dragHandlers} ref={group} position={space.transform(body.position)} onClick={e=>{e.stopPropagation();select(body.id);}}>
+ return <group name={'body-'+body.id} {...dragHandlers} ref={group} position={space.transform(body.position)} onClick={e=>{e.stopPropagation();select(body.id);}} onDoubleClick={e=>{e.stopPropagation();focusCamera(body.id);}} onPointerOver={()=>{document.body.style.cursor='pointer';}} onPointerOut={()=>{document.body.style.cursor='';}}>
  <group quaternion={new Quaternion().setFromUnitVectors(new Vector3(0,1,0),new Vector3(Math.sin(body.axialTilt*Math.PI/180)*Math.cos(Math.atan2(body.spin.axis[1],body.spin.axis[0])),Math.cos(body.axialTilt*Math.PI/180),-Math.sin(body.axialTilt*Math.PI/180)*Math.sin(Math.atan2(body.spin.axis[1],body.spin.axis[0]))))}>
  {dark?<><mesh><sphereGeometry args={[radius,40,32]}/><meshBasicMaterial color="#000000"/></mesh>
  <mesh rotation={[Math.PI/2,0,0]}><planeGeometry args={[radius*(body.blackHole?.diskSize??12)*2,radius*(body.blackHole?.diskSize??12)*2]}/><shaderMaterial vertexShader={vertex} fragmentShader={diskFragment} uniforms={diskUniforms} side={DoubleSide} transparent depthWrite={false}/></mesh>
@@ -104,7 +109,7 @@ function Paths() {
  if(s.view.orbits&&(!['vehicle','true'].includes(s.view.scale)||b?.spacecraft||b?.rocket))for(const x of s.bodies.filter(x=>!isParticle(x)&&(s.view.scale==='system'||s.view.scale==='earth'||s.view.scale==='planetary'||x.id===b?.id)).slice(0,50)) {
  const d=derivedOrbit(x,s.bodies,s.settings),o=d.elements;if(!o||o.e>=1||!d.primary)continue;
  const points=Array.from({length:129},(_,i)=>space.transform(add(d.primary.position,stateFromElements({...o,M:i/128*Math.PI*2},G*s.settings.gMultiplier*(d.primary.mass+(x.massless?0:x.mass))).position)));
- paths.push(<Line key={'orbit'+x.id} points={points} color={x.id===b?.id?'#a68d65':'#3d4b59'} transparent opacity={x.id===b?.id?.8:.42} lineWidth={x.id===b?.id?1:.6}/>);
+ paths.push(<Line key={'orbit'+x.id} onClick={event=>{const pick=useUIStore.getState().nodePick;if(!pick||pick.bodyId!==x.id)return;event.stopPropagation();const p=viewSpace(useSimStore.getState().scenario).inverse(event.point.toArray()),index=points.reduce((best,_,i)=>norm(sub(space.inverse(points[i]),p))<norm(sub(space.inverse(points[best]),p))?i:best,0),anomaly=index/128*Math.PI*2,phase=(anomaly-o.M+Math.PI*2)%(Math.PI*2),delay=phase/Math.sqrt(G*s.settings.gMultiplier*d.primary.mass/o.a**3);try{useSimStore.getState().edit(draft=>{draft.maneuvers.push({id:uid('node'),bodyId:x.id,jd:draft.jd+delay/DAY,components:pick.components,deltaV:norm(pick.components),direction:'vector',vector:[0,0,0],executed:false,fuelAware:!!x.rocket});draft.view.predictionEnabled=true;draft.view.predictionDuration=Math.max(delay*1.5,3600);});useUIStore.getState().update({nodePick:null});}catch(error){useSimStore.getState().fail(error.message);}}} points={points} color={x.id===b?.id?'#a68d65':'#3d4b59'} transparent opacity={x.id===b?.id?.8:.42} lineWidth={x.id===b?.id?1:.6}/>);
  if(x.id===b?.id&&s.view.markers&&(s.view.scale!=='system'||x.spacecraft||x.rocket)&&s.view.scale!=='vehicle'&&s.view.scale!=='true')for(const [label,M] of [['Pe',0],['Ap',Math.PI],['AN',-o.omega],['DN',Math.PI-o.omega]]) {
  // Node locations use true anomaly, converted to eccentric/mean anomaly.
  let anomaly=M;if(label==='AN'||label==='DN'){const E=2*Math.atan2(Math.sqrt(1-o.e)*Math.sin(M/2),Math.sqrt(1+o.e)*Math.cos(M/2));anomaly=E-o.e*Math.sin(E);}
@@ -157,7 +162,7 @@ function Performance() {
 function World() {
  const composer=useRef();
  const s=useSimStore(x=>x.scenario),quality=useSimStore(x=>x.qualityLevel),major=s.bodies.filter(b=>!isParticle(b)&&(s.view.showMoons!==false||b.type!=='moon'));
- return <><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<Starfield/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<LaunchSite/><Particles bodies={s.bodies}/><Paths/><ScienceOverlays/><AdaptiveLabels/><CameraRig/><Placement/><Performance/><SceneCompositor composer={composer}/>
+ return <><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<Starfield/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
  <EffectComposer ref={composer} enabled={false} frameBufferType={UnsignedByteType} multisampling={0}><Bloom luminanceThreshold={.9} intensity={.3} mipmapBlur/></EffectComposer></>;
 }
 const Scene=memo(function Scene(){return <Canvas id="orrery-viewport" dpr={[1,1.5]} camera={{position:[0,35,60],fov:42,near:.00001,far:1e10}}
@@ -174,7 +179,8 @@ function SceneCompositor({composer}){
   gl.setRenderTarget(null);gl.setScissorTest(false);gl.setViewport(0,0,size.width,size.height);
   const useBloom=s.view.bloom&&sim.qualityLevel!=='low'&&composer.current;
   gl.toneMapping=useBloom?NoToneMapping:ACESFilmicToneMapping;
-  if(useBloom)composer.current.render(dt);else gl.render(scene,camera);
+  const renderStarted=performance.now();if(useBloom)composer.current.render(dt);else gl.render(scene,camera);
+  if(!sim.renderSampleTime||performance.now()-sim.renderSampleTime>1000)useSimStore.setState({renderMs:performance.now()-renderStarted,renderSampleTime:performance.now()});
   const pane=document.querySelector('.pip-view'),b=s.bodies.find(x=>x.id===s.view.selected);
   if(!s.view.pip||!pane||!b||useUIStore.getState().hidden)return;
   const rect=pane.getBoundingClientRect(),canvas=gl.domElement.getBoundingClientRect();

@@ -17,3 +17,9 @@ Version 1 migration fills missing version 2 fields and new settings/body default
 Limits are enforced at import/API boundaries. Invalid vectors, duplicate IDs, dangling/self parents, non-finite nested numbers, malformed vehicle configurations, excessive collections and unsupported modes fail visibly. JSON import is replacement, so it is undoable through scenario history.
 
 Reverse stepping is not an undo log. Undo/redo operates on supported editing actions and scenario replacements; physical collision/staging evolution belongs to worker simulation state. When topology differs, history restores the saved scenario snapshot to prevent unsafe index-based edits.
+
+## Camera and observation extension
+
+Scenario version 2 remains compatible. View.navigation stores speed, damping, mouse-look, collision, chase and reference settings. View.camera/savedCameras/keyframes support SI positionSI/targetSI and a renderer-basis quaternion (render mapping x,z,-y from J2000 x,y,z), mode, FOV, reference and optional barycenterIds. Legacy position/target/scale poses remain accepted. View.timeBookmarks contains bounded named Julian dates. Eclipse is a supported event kind. Maneuver.components optionally stores prograde/normal/radial delta-v, resolved at execution. Spacecraft transmitterPower/antennaGain and sunlightState/solarFraction supplement existing power state. All data remains finite and subject to existing scenario limits.
+
+Camera state does not alter physical positions or the worker protocol. Recorded replay uses a separate validated file schema documented in replay-schema.md.
