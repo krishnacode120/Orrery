@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {validPose} from '../navigation/model.js';
+import {validPose} from '../navigation/settings.js';
 let bookmarks=[];try{const parsed=JSON.parse(localStorage.getItem('orrery-camera-bookmarks')||'[]');if(Array.isArray(parsed))bookmarks=parsed.filter(validPose).slice(0,100);}catch{}
 let serial=0;
 export const useCameraStore=create((set,get)=>({

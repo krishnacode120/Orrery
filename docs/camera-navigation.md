@@ -24,6 +24,12 @@ Single-click selection and Free Camera are independent. The left navigator selec
 
 Free movement uses exponential translation damping with the analytic displacement integral. Rotation, zoom and follow have separate rates. Adaptive speed follows nearby clearance with smoothing and a local safety cap; precision and boost do not change the stored base speed. A logarithmic manual speed ranges from metres/second to AU/second.
 
+## Solar System framing
+
+**View whole system** now uses an angled ecliptic overview. The **System views** menu offers Overview, Top, Side and Inner Planets; the inner view frames bodies within 3 AU of the main star without removing outer bodies. Fitting includes sampled live osculating ellipses, display radii and rings, using the active FOV and the visible area between tool panels. Logarithmically compressed views fit the transformed display coordinates.
+
+An explicit focus measures panel occlusion once and stores a projection offset with the camera pose. Opening or closing a panel does not move or reframe the camera. Orbit rotation points at the target throughout damping, and focus interpolates orientation over the same elapsed transition time as position. WASDQE cancels automation immediately, including while a toolbar button holds keyboard focus.
+
 ## Modes
 
 - **Free:** inertial position and mouse-look. OrbitControls is disabled.
@@ -43,15 +49,15 @@ The camera position remains SI. A separate render origin follows it in bounded r
 
 Scientific rendering retains distance/radius ratios. Educational logarithmic distance compression remains a separate, visibly identified display model. Focus uses body extent, rings, vehicle extent, FOV and aspect. Long travel pulls back, crosses an elevated system-scale route, then approaches with logarithmic distance interpolation; it does not interpolate billions of kilometres at a fixed local speed.
 
-Camera collision protection projects swept segments against displayed spherical bodies plus the configured clearance. Interior access is explicit. It is a point-camera geometric constraint, not rigid-body collision physics. A moving body that engulfs the camera can require an immediate boundary correction. Large SI magnitudes still have a finite double-precision floor; the HUD reports it when significant.
+Manual camera collision protection projects swept segments against displayed spherical bodies plus the configured clearance. Automatic focus travel checks each displayed pose against surfaces, allowing the navigation transition to finish rather than becoming trapped at an intervening enlarged body. Interior access is explicit. It is a point-camera geometric constraint, not rigid-body collision physics. A moving body that engulfs the camera can require an immediate boundary correction. Large SI magnitudes still have a finite double-precision floor; the HUD reports it when significant.
 
 Screen-space targets allow selecting small visible body centres within ten pixels without enlarging their rendered surfaces. Overlapping projected targets select the nearest centre. Mesh picking remains available.
 
 ## Bookmarks and presets
 
-Bookmarks persist locally and in scenario JSON: SI position/target, quaternion, mode, target ID, FOV, scale and reference. Pair barycenter IDs are retained. Legacy render-coordinate viewpoints remain loadable. Bookmarks can be renamed, deleted and restored.
+Bookmarks persist locally and in scenario JSON: SI position/target, quaternion, mode, target ID, FOV, scale, projection offset and reference. Pair barycenter IDs are retained. Legacy render-coordinate viewpoints remain loadable. Bookmarks can be renamed, deleted and restored.
 
-Presets include system top/side, Sun, Earth, Moon, Mars, Jupiter's moon system, Saturn rings, ecliptic and north ecliptic. History saves actual camera poses and restores them; selection alone is not a history entry.
+Presets include angled system overview, inner planets, system top/side, Sun, Earth, Moon, Mars, Jupiter's moon system, Saturn rings, ecliptic and north ecliptic. History saves actual camera poses and restores them; selection alone is not a history entry.
 
 ## Additional tools and approximations
 
@@ -71,7 +77,7 @@ Presets include system top/side, Sun, Earth, Moon, Mars, Jupiter's moon system, 
 
 The automated navigation tests cover local axes, selection independence, focus cancellation, Follow offset, Follow/Chase exit, precision/boost, pitch limits, target-lock, frame-rate-independent damping, FOV focus, collision protection, SI bookmark restoration, Neptune-scale offsets, spherical sites, surface cancellation, reference translation and barycenter bookmarks.
 
-The complete 23-step interactive camera acceptance sequence still requires browser verification. The available browser automation kernel crashed on both initialization and recovery in this upgrade session; no current screenshot or interactive pass is claimed. Previously captured screenshots document the prior interface, not proof of this camera rebuild.
+The 2026-10-09 browser pass verified the angled/top/inner views, Earth focus, W cancellation while a focus button held keyboard focus, live Earth follow with orbit rotation, pose-preserving Follow → Free, and accessible view controls beside panels. New automated cases cover full-orbit frustum fitting, compressed scales, cross-scale collision recovery, stable polar orientation, orbit pointing, 30/120 FPS focus interpolation, persisted projection offsets and adaptive speed during orbit. The complete vehicle/pointer-lock/touch acceptance sequence below still requires target-browser verification. Current proof images are in `docs/screenshots/camera-*.jpg`.
 
 Run the full commands in README and use F4 to inspect position/mode/origin during manual acceptance. Test pointer lock, touch gestures, Clean View, real-radius picking and all mode handoffs on the intended browser/hardware.
 

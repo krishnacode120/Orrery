@@ -133,12 +133,15 @@ class CameraState(ConfigBlock):
     positionSI: Vec3 | None = None
     targetSI: Vec3 | None = None
     orientation: tuple[FiniteFloat, FiniteFloat, FiniteFloat, FiniteFloat] | None = None
+    screenCenter: tuple[FiniteFloat, FiniteFloat] | None = None
     mode: Literal['free','orbit','follow','chase','target-lock','cinematic','surface','rocket','satellite'] | None = None
     fov: FiniteFloat = Field(default=42, ge=.1, le=120)
     scale: Literal['system','planetary','earth','vehicle','true']
 
     @model_validator(mode='after')
     def complete_pose(self):
+        if self.screenCenter is not None and any(abs(x) > .85 for x in self.screenCenter):
+            raise ValueError('Invalid camera screen center')
         if self.positionSI is not None:
             if self.targetSI is None or self.orientation is None or self.mode is None or math.hypot(*self.orientation) < .001:
                 raise ValueError('Incomplete inertial camera pose')

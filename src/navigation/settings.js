@@ -1,4 +1,5 @@
 const AU=149597870700;
+export const OVERVIEW_DIRECTION=[0.25,-1,0.8];
 export const CAMERA_MODES=['free','orbit','follow','chase','target-lock','cinematic','surface','rocket','satellite'];
 export const CAMERA_DEFAULTS={
  speed:AU*.01,adaptiveSpeed:true,vertical:'world',sensitivity:.0025,invertY:false,unrestricted:false,
@@ -26,5 +27,6 @@ export function validateNavigation(input={}){
 export function validPose(p){
  return !!p&&['positionSI','targetSI'].every(k=>Array.isArray(p[k])&&p[k].length===3&&p[k].every(x=>Number.isFinite(x)&&Math.abs(x)<=1e20))
  &&Array.isArray(p.orientation)&&p.orientation.length===4&&p.orientation.every(Number.isFinite)&&Math.hypot(...p.orientation)>.001
+ &&(p.screenCenter==null||Array.isArray(p.screenCenter)&&p.screenCenter.length===2&&p.screenCenter.every(x=>Number.isFinite(x)&&Math.abs(x)<=.85))
  &&CAMERA_MODES.includes(p.mode)&&Number.isFinite(p.fov)&&p.fov>=.1&&p.fov<=120;
 }

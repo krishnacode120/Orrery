@@ -117,6 +117,8 @@ Limits: **20,000 bodies**, **512 massive sources**, **64 fragments per event**, 
 
 ## Cameras and capture
 
+Use **System views** for the angled Solar System overview, top/side views or Inner Planets. Framing includes visible orbit ellipses and accounts for open panels only when explicitly requested; selecting objects or opening panels does not reposition the camera.
+
 The rebuilt camera has one owner and explicit Free, Orbit, Follow, Chase, Target Lock, Cinematic, Surface, Rocket and Satellite modes. Free uses camera-local WASDQE and yaw/pitch mouse-look; selection cannot refocus it. Manual input cancels automated focus. OrbitControls acts only on a proxy in Orbit/Follow. Adaptive/logarithmic speed, Ctrl precision, Shift boost, optional pointer lock, separate damping, reference frames, collision protection, camera history, SI bookmarks and presets are available in Camera navigation. Surface and telescope views use actual radii. Cinematic keyframes interpolate over eight seconds per segment.
 
 PNG captures the viewport. WebM records the viewport at selectable output height and requested frame rate when MediaRecorder supports it. Browser encoding may drop frames. UI compositing, audio capture, GPU timestamp timing, and full GR ray tracing are unavailable and are not represented by fake controls.

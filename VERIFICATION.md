@@ -4,9 +4,9 @@
 
 | Check | Result |
 | --- | --- |
-| `npm.cmd test -- --reporter=verbose --silent=false` | **146 passed in 16 files** |
-| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | **56 passed** |
-| `npm.cmd run build` | **Passed; 1,155 modules** |
+| `npm.cmd test -- --reporter=verbose --silent=false` | **156 passed in 17 files** |
+| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | **57 passed** |
+| `npm.cmd run build` | **Passed; 1,157 modules** |
 | Circular orbit over 1,000 periods: max relative energy drift | 9.063741269683645e-8 |
 | Verlet signed nonuniform forward/reverse sequence | Passed |
 | Mercury 1PN advance vs analytic | 5.018828309921192e-7 vs 5.018812201873169e-7 rad/orbit |
@@ -21,6 +21,14 @@ The retained camera tests cover camera-local movement, independent selection, im
 What-If tests cover immutable baselines, branch-local undo, Apply/Undo, nested branches, timed physical operations, intentional conservation changes, same-frame settings/topology publication in both transports, fragment momentum, matched epochs, partial prediction horizons, bounded sensitivity and extended Sandbox dates. Render interpolation tests cover immutable authoritative state, equal-time rendering at 30/60/120/144 FPS, pause/revision behavior, attitude interpolation and capped reverse-aware trails.
 
 Physics, vehicle and persistence regression coverage retains Kepler/JD initialization, integrators and rejected trials, tree/direct agreement, massless non-sourcing, derived elements, collision/tidal conservation, adjusted drift baselines, black-hole absorption, wormholes, fuel-aware burns, launch constraints, bounded Horizons interpolation and scenario/worker ownership.
+
+## Camera framing repair
+
+Ten new frontend cases verify sampled full-orbit fitting within panel insets, logarithmic display fitting, non-destructive inner-planet framing, recovery from expanded-body collision barriers, eccentric-orbit bounds, stable polar angles, centered orbit damping, equal-time focus interpolation, projection-offset persistence and adaptive orbit speed. One new backend case verifies valid and malformed projection offsets in saved camera states.
+
+The browser pass exercised angled, top and inner-system presets, Earth close-up focus, immediate W cancellation, live Earth following with user orbit rotation, and Follow → Free. Visible F4 telemetry retained identical position/direction during that handoff. Panel opening did not move the view. At 390 × 844, the compact header and view controls remain separate from navigation controls with no horizontal document overflow. Development HMR required a clean reload; the final runtime checks use that clean page.
+
+Proof: [Solar System overview](docs/screenshots/camera-solar-overview.jpg), [inner planets](docs/screenshots/camera-inner-planets.jpg).
 
 ## Universe expansion verification
 
@@ -58,15 +66,15 @@ Final CPU benchmark, during verification on this machine:
 
 | Particles + 12 sources | Steps/second |
 | --- | --- |
-| 1,000 | 216.3 |
-| 5,000 | 70.8 |
-| 10,000 | 37.4 |
+| 1,000 | 245.7 |
+| 5,000 | 68.3 |
+| 10,000 | 47.4 |
 
 These are physics integration rates, not render FPS or a universal laptop guarantee. Catalogue geometry uses GPU point buffers; physical debris retains GPU instancing. Gravity remains CPU direct/tree evaluation.
 
-Production output includes a 535.70 kB main chunk (179.03 kB gzip), lazy 130.05 kB Scene chunk (36.54 kB gzip), a small Universe Scene chunk, and separate systems / astronomy-data chunks. Vite reports chunks above 500 kB. The catalog is an offline snapshot; it requires no remote font or catalog fetch on startup.
+Production output includes a 537.41 kB main chunk (179.62 kB gzip), lazy 131.99 kB Scene chunk (37.24 kB gzip), a small Universe Scene chunk, and separate systems / astronomy-data chunks. Vite reports chunks above 500 kB. The catalog is an offline snapshot; it requires no remote font or catalog fetch on startup.
 
-The backend emits an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 56 tests pass.
+The backend emits an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 57 tests pass.
 
 ## Scientific and deployment limits
 

@@ -11,6 +11,15 @@ def pose():
             'orientation': [0, 0, 0, 1], 'mode': 'free', 'scale': 'vehicle', 'fov': .5,
             'reference': 'inertial', 'targetId': None, 'name': 'Neptune precision'}
 
+def test_camera_framing_round_trip_and_invalid_offsets():
+    s = snapshot()
+    s['view'] = {'camera': {**pose(), 'screenCenter': [-.25, .1]}}
+    assert Scenario.model_validate(s).view == s['view']
+    for invalid in ([2, 0], [0], [float('inf'), 0]):
+        s['view']['camera']['screenCenter'] = invalid
+        with pytest.raises(ValueError):
+            Scenario.model_validate(s)
+
 def test_inertial_and_legacy_camera_poses_round_trip():
     s=snapshot()
     s['view']={'camera':pose(),'savedCameras':[pose()],
