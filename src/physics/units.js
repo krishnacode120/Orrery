@@ -14,6 +14,7 @@ export const sub = (a,b) => a.map((x,i)=>x-b[i]);
 export const scale = (a,s) => a.map(x=>x*s);
 export const UNITS = { kg:1, 'M⊕':EARTH_MASS, 'M☉':SOLAR_MASS, m:1, km:1000,
   AU, 'R⊕':EARTH_RADIUS, 'R☉':SOLAR_RADIUS, 'm/s':1, 'km/s':1000,
+  'light-seconds':299792458, 'light-minutes':299792458*60, 'light-hours':299792458*3600, 'light-days':299792458*DAY, ly:299792458*YEAR, pc:AU*648000/Math.PI,
   s:1, d:DAY, yr:YEAR, rad:1, deg:Math.PI/180 };
 export const J2000 = 2451545;
 export const MIN_JD = 2378496.5; // 1800-01-01 UTC

@@ -1,3 +1,6 @@
+import CatalogSky from './CatalogSky.jsx';
+import EnvironmentLayers from './EnvironmentLayers.jsx';
+import {habitableZone} from '../astronomy/systems.js';
 import {uid} from '../store/actions.js';
 import {useBodyDrag} from './BodyInteraction.js';
 import {ScienceOverlays,AdaptiveLabels} from './ScienceOverlays.jsx';
@@ -28,13 +31,6 @@ import {viewSpace,displayRadius} from './viewSpace.js';
 import {vertex,planetFragment,atmosphereFragment,diskFragment,lensFragment,portalFragment} from '../shaders/materials.js';
 
 const select=id=>{if(performance.now()<(useCameraStore.getState().suppressPickUntil??0))return;useSimStore.getState().configureView({selected:id});};
-function Starfield() {
- const points=useMemo(()=>{const p=[],c=[];let seed=92313;const rng=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
- for(let i=0;i<3200;i++){const z=rng()*2-1,a=rng()*Math.PI*2,r=Math.sqrt(1-z*z);p.push(r*Math.cos(a)*900,z*900,r*Math.sin(a)*900);
- const temperature=rng(),brightness=.12+Math.pow(rng(),8)*.72;c.push(brightness*(temperature<.3?1:.78),brightness*.85,brightness*(temperature>.7?1:.65));}return {p:new Float32Array(p),c:new Float32Array(c)};},[]);
- const ref=useRef();useFrame(({camera})=>ref.current.position.copy(camera.position));
- return <points ref={ref} frustumCulled={false}><bufferGeometry><bufferAttribute attach="attributes-position" args={[points.p,3]}/><bufferAttribute attach="attributes-color" args={[points.c,3]}/></bufferGeometry><pointsMaterial size={.85} vertexColors sizeAttenuation={false} depthWrite={false}/></points>;
-}
 function PlanetMaterial({body}) {
  const mapName={earth:'earth_daymap',venus:'venus_atmosphere',mercury:'mercury',mars:'mars',jupiter:'jupiter',saturn:'saturn',uranus:'uranus',neptune:'neptune',sun:'sun',moon:'moon'}[body.id]??(body.material==='earth'?'earth_daymap':null);
  const [map,night,clouds]=useTexture(['/textures/'+(mapName??'moon')+'.jpg','/textures/earth_nightmap.jpg','/textures/earth_clouds.jpg']);
@@ -81,8 +77,8 @@ function BodyMesh({body}) {
  {body.blackHole?.photonSphere&&<mesh rotation={[Math.PI/2,0,0]}><ringGeometry args={[radius*1.49,radius*1.51,100]}/><meshBasicMaterial color="#ab9372" side={DoubleSide}/></mesh>}</>
  :body.wormhole?<Portal body={body} radius={radius}/>
  :vehicle?<VehicleModel body={body} rocket={!!body.rocket} radius={radius}/>
- :<mesh ref={surface}><sphereGeometry args={[radius,radius>1000?256:s.view.quality==='low'?20:64,radius>1000?128:s.view.quality==='low'?12:40]}/><PlanetMaterial body={body}/></mesh>}
- {body.atmosphere&&<Atmosphere body={body} radius={radius}/>}
+ :s.view.interior&&selected?null:<mesh ref={surface}><sphereGeometry args={[radius,radius>1000?256:s.view.quality==='low'?20:64,radius>1000?128:s.view.quality==='low'?12:40]}/><PlanetMaterial body={body}/></mesh>}
+ {body.atmosphere&&!(s.view.interior&&selected)&&<Atmosphere body={body} radius={radius}/>}
  {body.rings&&<PlanetRings body={body} radius={radius}/>}
  {body.type==='pulsar'&&<group ref={beam} rotation={[.4,0,0]}>{[-1,1].map(sign=><mesh key={sign} position={[0,sign*radius*6,0]} rotation={[sign>0?Math.PI:0,0,0]}><coneGeometry args={[radius*2,radius*10,24]}/><meshBasicMaterial color="#6891b2" transparent opacity={.13} depthWrite={false} blending={AdditiveBlending}/></mesh>)}</group>}
  </group>
@@ -155,15 +151,16 @@ function Performance() {
  useSimStore.setState({fps,frameMs:1000/fps,qualityLevel:quality,drawCalls:gl.info.render.calls,triangles:gl.info.render.triangles});
  });return null;
 }
+function HabitableZoneGuide(){const s=useSimStore(x=>x.scenario),ref=useRef(),star=s.bodies.find(b=>b.id===s.view.selected&&b.type==='star')??s.bodies.find(b=>b.type==='star'),zone=habitableZone(star?.luminosity);useFrame(()=>{if(!ref.current||!star)return;const current=renderScenario(useSimStore.getState().scenario),sp=viewSpace(current),b=current.bodies.find(b=>b.id===star.id);if(b){ref.current.position.fromArray(sp.transform(b.position));ref.current.scale.setScalar(sp.distanceScale/sp.unit);}});return s.view.habitableZone&&zone?<mesh ref={ref} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[zone.inner,zone.outer,128]}/><meshBasicMaterial color="#73917e" transparent opacity={.12} side={DoubleSide} depthWrite={false}/></mesh>:null;}
 function World() {
  const composer=useRef();
  const s=useSimStore(x=>x.scenario),quality=useSimStore(x=>x.qualityLevel),major=s.bodies.filter(b=>!isParticle(b)&&(s.view.showMoons!==false||b.type!=='moon'));
- return <><MotionFrame/><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<Starfield/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><HistoryTrails/><WhatIfGhosts/><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
+ return <><MotionFrame/><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<CatalogSky/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><HistoryTrails/><EnvironmentLayers/><HabitableZoneGuide/><WhatIfGhosts/><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
  <EffectComposer ref={composer} enabled={false} frameBufferType={UnsignedByteType} multisampling={0}><Bloom luminanceThreshold={.9} intensity={.3} mipmapBlur/></EffectComposer></>;
 }
 const Scene=memo(function Scene(){return <Canvas id="orrery-viewport" dpr={[1,1.5]} camera={{position:[0,35,60],fov:42,near:.00001,far:1e10}}
  gl={{antialias:true,logarithmicDepthBuffer:true,toneMapping:ACESFilmicToneMapping,preserveDrawingBuffer:true}}
- fallback={<div className="canvas-fallback">WebGL is unavailable. Physics, analysis, and export remain available.</div>}><color attach="background" args={['#030509']}/><Suspense fallback={null}><World/></Suspense></Canvas>;});
+ fallback={<div className="canvas-fallback">3D viewport requires WebGL. Physics, analysis, and export remain available.</div>}><color attach="background" args={['#030509']}/><Suspense fallback={null}><World/></Suspense></Canvas>;});
 export default Scene;
 
 // A single WebGL context owns both views. A second Canvas can suspend the main
@@ -183,12 +180,16 @@ function SceneCompositor({composer}){
   if(!rect.width||!rect.height)return;
   const space=viewSpace(s),p=new Vector3(...space.transform(b.position)),r=Math.max(displayRadius(b,s,space),1e-8)*(b.rings?b.rings.outer/b.radius:1);
   const distance=r*(b.rocket?13:b.spacecraft?11:4);
-  secondary.aspect=rect.width/rect.height;secondary.position.copy(p).add(new Vector3(.3,.4,1).normalize().multiplyScalar(distance));
-  secondary.near=Math.max(1e-12,r*.001);secondary.far=Math.max(1000,r*100);secondary.lookAt(p);secondary.updateProjectionMatrix();secondary.updateMatrixWorld();
+  const sensor=s.view.sensorView;
+  if(sensor){const target=s.bodies.find(x=>x.id===(sensor.mode==='earth'?'earth':sensor.mode==='sun'?s.bodies.find(x=>x.type==='star')?.id:sensor.targetId));secondary.position.copy(p);const heading=b.rocket?.orientation??b.spacecraft?.orientation??unitVector(b.velocity);const direction=target&&sensor.mode!=='forward'?sub(target.position,b.position):heading;secondary.lookAt(p.clone().add(new Vector3(direction[0],direction[2],-direction[1]).normalize()));secondary.fov=sensor.fov??30;}
+  else secondary.fov=40;
+  secondary.aspect=rect.width/rect.height;if(!sensor)secondary.position.copy(p).add(new Vector3(.3,.4,1).normalize().multiplyScalar(distance));
+  secondary.near=Math.max(1e-12,r*.001);secondary.far=sensor?Math.max(1000,...s.bodies.map(x=>norm(sub(x.position,b.position))/space.unit*space.distanceScale*2)):Math.max(1000,r*100);if(!sensor)secondary.lookAt(p);secondary.updateProjectionMatrix();secondary.updateMatrixWorld();
   const hidden=[],uniforms=[];
   scene.traverse(object=>{
    if(object.name?.startsWith('body-')){
-    if(object.name!=='body-'+b.id&&!s.bodies.some(star=>star.type==='star'&&object.name==='body-'+star.id)){hidden.push([object,object.visible]);object.visible=false;}
+    if(sensor&&object.name==='body-'+b.id){hidden.push([object,object.visible]);object.visible=false;}
+    else if(!sensor&&object.name!=='body-'+b.id&&!s.bodies.some(star=>star.type==='star'&&object.name==='body-'+star.id)){hidden.push([object,object.visible]);object.visible=false;}
     else object.traverse(mesh=>{const u=mesh.material?.uniforms?.lightDirection;if(u){uniforms.push([u,u.value.clone()]);u.value.transformDirection(camera.matrixWorld).transformDirection(secondary.matrixWorldInverse);}});
    }
   });
@@ -203,4 +204,4 @@ function SceneCompositor({composer}){
  },2);
  return null;
 }
-export function PictureInPicture(){const s=useSimStore(x=>x.scenario),b=s.bodies.find(x=>x.id===s.view.selected);if(!s.view.pip||!b)return null;return <div className="pip-view"><span>{b.name} · tracking camera</span></div>;}
+export function PictureInPicture(){const s=useSimStore(x=>x.scenario),b=s.bodies.find(x=>x.id===s.view.selected);if(!s.view.pip||!b)return null;return <div className="pip-view"><span>{b.name} · {s.view.sensorView?'optical sensor':'tracking camera'}</span></div>;}

@@ -2,10 +2,10 @@
 
 ![Orrery observation workspace](docs/screenshots/immersive-earth.png)
 
-**Explore the solar system. Inspect an orbit. Build a simulation.**
+**Explore the Solar System and nearby stars. Build planetary systems. Plan missions.**
 
 
-Orrery is a local-first 3D orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a configurable multistage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
+Orrery is a local-first 3D astronomy and orbital dynamics workspace: approximate solar-system ephemerides, an editable N-body sandbox, spacecraft analysis, and a configurable multistage rocket mission simulator. The original Phase 1 SI state, worker ownership protocol, revision gating, and conservation baselines remain in place.
 
 The simulation fills the window. A compact object navigator, collapsible tool panels, selectable workspace layouts, and keyboard navigation surround it. Press **H** to hide or restore the interface. The [camera and exploration guide](docs/camera-navigation.md) documents the rebuilt navigation system; the [flight guide](docs/exploration-upgrade.md) covers missions. Planet maps are bundled locally; the application does not load fonts or textures from third-party servers at runtime.
 
@@ -44,6 +44,20 @@ Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optio
 - **Scenario library** includes 37 built-in examples, searchable categories/tags, saved/recent local snapshots, shared-ID loading, import/export, and backend sharing.
 - **Simulation settings** select integrator, solver, adaptive controls, collisions, GR approximation, units, visual quality, accessibility, cameras and capture.
 - **Events** combines collision/tidal/mission events with conservation diagnostics.
+
+## Universe exploration and scientific discovery
+
+**Universe** adds a non-simulating nearby-star catalog, exoplanet systems, schematic Milky Way/Local Group maps and scale navigation. Selection and camera focus remain separate. Entering catalog navigation preserves and pauses the live simulation; returning restores it.
+
+- **Catalog data:** 3,934 nearby HYG stars and 19 NASA composite exoplanets in five systems; missing measurements remain Unknown, estimated/minimum masses retain provenance. See [data attribution and licensing](docs/astronomy-data.md).
+- **System Builder:** primary configuration, real orbital-element placement, Hill-spaced generation, binary/triple experiments, moons, belts and comets.
+- **Formation laboratory:** bounded gravitating planetesimals, massless dust, actual collision accretion and disk metrics; explicitly educational, without gas dynamics or migration.
+- **Interstellar missions:** static-endpoint relativistic cruise and proper-acceleration profiles, Earth/proper time, kinetic-energy lower bounds and communication timelines. Technology labels do not certify requested capabilities; speeds at or above c are rejected.
+- **Observation / Time Machine:** physical angular diameter and phase, local sky, telescope, source-labelled date initialization and bounded worker Event Finder.
+- **Mission Analyst / Sensors / Challenges:** deterministic explanations, actual-state orbital criteria, optical inset, geometric reference stars/proximity, optional schematic magnetic/radiation/cutaway layers.
+- **Favorites and sessions:** object/system/scenario/mission/view favorites, navigation history and validated exploration JSON snapshots with recorded epoch.
+
+The [Universe Explorer guide](docs/universe-explorer.md) documents controls, coordinate transforms, scientific scope, limits and an acceptance checklist. Catalog visualizations and educational graphics never silently become gravity sources. The original worker, camera, What-If, vehicle and sharing contracts remain in place.
 
 ## Rocket View and mission control
 

@@ -13,11 +13,11 @@ import {primaryFor} from '../physics/orbital.js';
 import {norm,sub,add,unit,G,cross,scale} from '../physics/units.js';
 export function AdaptiveLabels(){
  const s=useSimStore(x=>x.scenario),ui=useUIStore(),refs=useRef(new Map()),groups=useRef(new Map()),last=useRef(0);
- const built=viewSpace(s);
+
  const {camera,size}=useThree();
  const bodies=s.bodies.filter(b=>b.visible&&!b.disrupted&&(!b.massless||b.spacecraft||b.rocket)&&(s.view.showMoons!==false||b.type!=='moon')).sort((a,b)=>(b.id===s.view.selected)-(a.id===s.view.selected)||(a.type==='moon')-(b.type==='moon')).slice(0,100);
  useFrame(({clock})=>{
-  const visual=renderScenario(useSimStore.getState().scenario);for(const b of visual.bodies){const group=groups.current.get(b.id);if(group)group.position.fromArray(built.transform(b.position));}
+  const visual=renderScenario(useSimStore.getState().scenario),visualSpace=viewSpace(visual);for(const b of visual.bodies){const group=groups.current.get(b.id);if(group)group.position.fromArray(visualSpace.transform(b.position));}
   if(clock.elapsedTime-last.current<.12)return;last.current=clock.elapsedTime;
   const current=visual,space=viewSpace(current),boxes=[];
   for(const b of bodies){
@@ -33,8 +33,8 @@ export function AdaptiveLabels(){
  });
  if(!s.view.labels||ui.hidden||!ui.hud)return null;
  const space=viewSpace(s);
- return <>{bodies.map(b=><Html ref={g=>g?groups.current.set(b.id,g):groups.current.delete(b.id)} key={b.id} position={space.transform(b.position)} center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
- <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html>)}</>;
+ return <>{bodies.map(b=><group ref={g=>g?groups.current.set(b.id,g):groups.current.delete(b.id)} key={b.id} position={space.transform(b.position)}><Html center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
+ <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html></group>)}</>;
 }
 export function ScienceOverlays(){
  const sim=useSimStore(),s=sim.scenario,space=viewSpace(s),b=s.bodies.find(x=>x.id===s.view.selected),ui=useUIStore();

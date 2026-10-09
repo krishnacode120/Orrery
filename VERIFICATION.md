@@ -1,91 +1,88 @@
 # Orrery verification — 2026-10-09
 
-## Automated verification
+## Final automated verification
 
 | Check | Result |
 | --- | --- |
-| `npm.cmd test -- --reporter=verbose --silent=false` | 121 passed in 14 files |
-| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | 52 passed |
-| `npm.cmd run build` | Passed; 1,133 modules |
+| `npm.cmd test -- --reporter=verbose --silent=false` | **146 passed in 16 files** |
+| `.\.venv\Scripts\python.exe -m pytest backend/tests -q` | **56 passed** |
+| `npm.cmd run build` | **Passed; 1,155 modules** |
 | Circular orbit over 1,000 periods: max relative energy drift | 9.063741269683645e-8 |
 | Verlet signed nonuniform forward/reverse sequence | Passed |
 | Mercury 1PN advance vs analytic | 5.018828309921192e-7 vs 5.018812201873169e-7 rad/orbit |
 | Two-stage ascent, separation, insertion and deployment | Passed |
 | Insertion periapsis / apoapsis altitude | 164.09 km / 208.80 km |
-| Remaining upper-stage fuel at sampled insertion | 9,499.65 kg |
 | 37 presets and old-schema JSON round trips | Passed |
 | Shared-memory and transferable worker contracts | Passed |
-| Edit-key security and metadata/camera persistence | Passed |
+| Scenario edit-key security and camera/metadata persistence | Passed |
 
-The camera suite covers camera-local movement, independent selection, immediate focus cancellation, follow offsets, pose-preserving exits from follow/chase, temporary precision/boost, pitch limits, target lock, frame-rate-independent translation damping, size/FOV focus, collision tunneling prevention, SI camera restoration, floating-origin metre offsets at Neptune, rotating surface sites, reference frames, retained barycenter pairs, and SOI arrival automation that preserves free-camera ownership.
+The retained camera tests cover camera-local movement, independent selection, immediate focus cancellation, follow offsets, pose-preserving exits, precision/boost, pitch limits, target lock, frame-rate-independent damping, size/FOV focus, collision protection, SI restoration, metre offsets at Neptune, rotating surface sites and reference frames.
 
-Observation tests cover finite-disc shadows, phase/angular diameter/light delay, radio LOS/range/power behavior, ground-station coordinate frames, idealized Lagrange roots, capture/escape estimates, bounded rendezvous guidance, live maneuver components, integration-segment closest approaches, and shadow event serialization. Replay tests establish immutable exact snapshots, read-only playback, exact live-state restoration, and explicit recording limits. New backend tests cover legacy/SI cameras, navigation bounds, date bookmarks, maneuver components, and eclipse events.
+What-If tests cover immutable baselines, branch-local undo, Apply/Undo, nested branches, timed physical operations, intentional conservation changes, same-frame settings/topology publication in both transports, fragment momentum, matched epochs, partial prediction horizons, bounded sensitivity and extended Sandbox dates. Render interpolation tests cover immutable authoritative state, equal-time rendering at 30/60/120/144 FPS, pause/revision behavior, attitude interpolation and capped reverse-aware trails.
 
-What-If tests establish baseline immutability, branch-local undo, Apply/Undo, nested branch restoration, camera-command independence, all 16 preset initial states, atomic timed operations, intentional-change conservation accounting, same-frame settings/topology publication in both transports, rejected changes, fragment mass/momentum, matched-epoch cloned predictions, partial horizons, bounded sensitivity and extended Sandbox dates. Stage separation inherits position and conserves combined momentum with the configured relative speed. Motion tests cover immutable authoritative state, equal-time rendering at 30/60/120/144 FPS, pause/revision behavior, shortest-arc attitude and capped/adaptive reverse-aware trail rings. Backend tests cover schedules, branch metadata, duplicate/event limits and matching scalar/vector/burn defaults.
+Physics, vehicle and persistence regression coverage retains Kepler/JD initialization, integrators and rejected trials, tree/direct agreement, massless non-sourcing, derived elements, collision/tidal conservation, adjusted drift baselines, black-hole absorption, wormholes, fuel-aware burns, launch constraints, bounded Horizons interpolation and scenario/worker ownership.
 
-Existing tests retain Kepler/JD initialization, integrators, rejected adaptive trials, tree/direct agreement, massless non-sourcing, orbital elements, collision conservation, tidal debris, adjusted drift baselines, black-hole absorption, wormholes, cloned prediction, bounded Horizons interpolation, fuel-aware burns, moving-primary launch constraints, and scenario/worker contracts.
+## Universe expansion verification
 
-## Bug review
+Twenty-four new frontend cases cover coordinate inverses, Float64 origin subtraction before Float32 publication, catalog provenance, relativistic cruise and acceleration timing, one-metre acceleration precision, rejection of FTL inputs, barycentric catalog instantiation, Hill-spacing generation, binary periapsis safety, non-sourcing formation dust, physical-state challenges, event-search final intervals, exploration snapshot validation, baseline restoration, catalog isolation from worker evolution and server-rendered tool panels.
 
-The [bug-review report](docs/bug-review.md) records reproduced failures and their fixes. Sixteen new frontend tests cover revision ownership after failed/stalled worker RPCs, shared-buffer copying, analysis cancellation, non-sourcing debris at the massive-body cap, disabled-gravity behavior, wormhole deletion, invalid prediction inputs, exact burn boundaries, pause/resume interpolation, malformed imports, empty HTTP responses, IndexedDB identity/deletion/abort behavior, and experiment recovery. Seventeen backend cases cover malformed view/ephemeris payloads, duplicate maneuver IDs, invalid/wrong-epoch Horizons responses, ordered series coverage, and CORS on limit errors. Existing Phase 1 API round trips still pass without injected optional arrays.
+Four backend cases verify astronomy metadata, bounded catalog search, star lookup, systems and compatible visual-field validation. Existing backend cases retain legacy/SI camera, maneuver, branch/schedule, Horizons epoch/coverage, CORS and security checks.
 
-## Performance
+An additional worker regression reproduces a single-step request arriving during a paused publication. Publications acknowledge only a step actually dispatched; an unrelated zero-duration frame cannot clear a pending step.
 
-Final CPU benchmark on this machine, during the regression suite with backend verification and production compilation running concurrently:
+## Browser verification
+
+The in-app browser successfully rendered WebGL scenes. The following workflows were exercised through the actual UI:
+
+- Observation: Earth → Jupiter, physical light-delay/angular-diameter readouts and telescope tracking.
+- Nearby Stars: selection independent of focus; explicit Proxima focus; W immediately interrupts automated motion.
+- Proxima catalog system: NASA composite rows, approximate habitable-zone guide, creation of a real editable three-body N-body scenario and addition of a physical hypothetical planet.
+- What-If: baseline-preserving branch creation, exit without saving and restoration of the editable baseline.
+- Original Solar System restoration: the 27 original bodies, epoch, pause state and target-lock camera returned after catalog/scenario exploration.
+- Interstellar: Earth → Proxima at 0.1c displayed 42.26 Earth-frame years, 42.05 proper years and 4.226 years one-way communication delay from the catalog distance.
+- Milky Way and Local Group: schematic rendered galaxy clouds, Sun/center markers and history navigation.
+- Formation: creation of eight resolved planetesimals plus twenty non-sourcing dust tracers, actual mass/count metrics and original-system restoration.
+- Single-step: the live Solar System advanced by its configured maximum frame after the worker acknowledgement repair.
+- Event Finder: cloned Earth–Mars search completed one day with sixteen samples, accurately reporting no detected event within that sampled coverage.
+- Responsive layout at 390 × 844: bounded bottom-sheet width/scrolling, accessible catalog controls and no horizontal document overflow. The temporary viewport override was reset.
+
+Browser testing also found and fixed a Drei Html ref misuse, focus cancellation while a button held focus, catalog history retaining movement speed from another scale, a duplicate What-If horizon option and catalog labels appearing above mobile panels. No new runtime errors were recorded after the clean reload during the final event-search workflow. Earlier development/HMR errors remain in the browser's retained log history.
+
+Proof images: [Milky Way](docs/screenshots/universe-milky-way.jpg), [mobile nearby catalog](docs/screenshots/universe-mobile.jpg). The mobile image was captured before the final label-layer fix.
+
+These observations do **not** certify the entire camera/What-If acceptance lists, touch gestures, vehicle chase, every browser, recording decode or jitter across every scale. See [camera checks](docs/camera-navigation.md), [What-If checks](docs/what-if.md) and [Universe Explorer checks](docs/universe-explorer.md).
+
+## Performance and build
+
+Final CPU benchmark, during verification on this machine:
 
 | Particles + 12 sources | Steps/second |
 | --- | --- |
-| 1,000 | 106.5 |
-| 5,000 | 39.1 |
-| 10,000 | 23.7 |
+| 1,000 | 216.3 |
+| 5,000 | 70.8 |
+| 10,000 | 37.4 |
 
-These are integration rates, not render frame rates. Results vary with concurrent load. Prior browser observations in small scenes were approximately 34–58 FPS; they do not establish the frame rate of this camera upgrade or a universal 5,000-particle / 60 FPS guarantee.
+These are physics integration rates, not render FPS or a universal laptop guarantee. Catalogue geometry uses GPU point buffers; physical debris retains GPU instancing. Gravity remains CPU direct/tree evaluation.
 
-Production output: main chunk 518.19 kB / 172.99 kB gzip, lazy Scene chunk 1,015.28 kB / 273.49 kB gzip, physics worker 90.65 kB. Vite reports the large rendering chunk. Mission control and optional tools remain lazy chunks.
+Production output includes a 535.70 kB main chunk (179.03 kB gzip), lazy 130.05 kB Scene chunk (36.54 kB gzip), a small Universe Scene chunk, and separate systems / astronomy-data chunks. Vite reports chunks above 500 kB. The catalog is an offline snapshot; it requires no remote font or catalog fetch on startup.
 
-## Interactive verification status
+The backend emits an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 56 tests pass.
 
-**The camera rebuild and What-If/motion upgrade have not passed the interactive acceptance checklists.** Browser verification could not start: the computer-use kernel exits during Windows sandbox setup with `helper_unknown_error: setup refresh had errors`. No current browser acceptance result or screenshot is claimed.
+## Scientific and deployment limits
 
-The earlier published upgrade was inspected for full-window layout, panel collapse, H hide/restore, physical/visibility scales, desktop and 390 × 844 layout, Earth close-up, transfer planner, added parking-orbit rocket, live coast telemetry, minimap and single-context inset. Those observations predate this camera rebuild.
+- HYG stars are a static nearby catalog, not continuously propagated ephemerides. Unknown stellar mass/radius/temperature remain Unknown. HYG visual luminosity proxies are labelled separately from NASA bolometric composite parameters.
+- Composite exoplanet masses may be estimated or minimum masses. Radial-velocity composite radii may be estimated. Coplanar orbit orientation and phase are illustrative. Editable copies use configured local SI state and real N-body evolution.
+- Galaxy clouds, magnetic fields, radiation shells and interior layers are schematic educational visualizations; they do not contribute gravity or electromagnetic forces.
+- Formation models physical collision accretion, without gas dynamics, chemistry, migration or radiation feedback.
+- Interstellar results use static-endpoint flat-spacetime kinematics. Propulsion classifications are not feasibility claims; no engineering fuel/power budget or stellar-motion solution is provided.
+- Event searches are sampled and compute-bounded. Narrow events can be missed. Approximate moon phases prevent certified eclipse predictions.
+- Rule-based Mission Analyst suggestions require explicit clicks. Reference-star geometry is not an attitude-determination solver; attitude lock is explicitly unavailable.
+- Continuous Earth-launch-to-Mars-capture has not been validated end-to-end. Transfer estimates require course corrections; cruise presets skip launch/escape.
+- Rocket dynamics use changing-mass point motion, approximate atmosphere and guidance. Planned burns are fuel-aware impulses; duration is estimated.
+- SSO-like presets do not include J2. Geometric shadows, approximate isolated-Earth solar direction and free-space radio links are labelled; these are not full atmosphere/RF models.
+- Replay shows captured snapshots. What-If predictions use bounded cloned Newtonian states, with reported reached horizons and sampled outcomes.
+- Black-hole lensing is procedural, not full-scene geodesic tracing; wormholes are experimental. Dissipation, collisions and consumed fuel cannot be physically undone by reverse time.
+- Float64 bounds absolute coordinate precision. Catalog origin subtraction occurs before Float32 rendering; physically authoritative local scenarios remain in their existing coordinate contract.
+- Full GPU gravity compute, certified navigation ephemerides, procedural terrain, exact planetary interiors, stellar lifetimes, optional split-screen comparison and crossfading LOD are not claimed.
 
-Previously retained checks include Reality/Sandbox editing, predictions and maneuvers, SharedArrayBuffer and explicit `?fallback` transport, satellite telemetry and saved/shared state, and live Horizons proxy responses. The retained Mars comparison at 2026-10-04 00:00 UTC was 0.006683899758670762° against Horizons. Recording controls reached start/stop, but the exported WebM has not been independently decoded.
-
-## Required deployment checks
-
-Run the complete [camera acceptance checklist](docs/camera-navigation.md), including selection without motion, focus interruption, moving-body follow/orbit, chase-to-free without jumps, near-satellite precision, Earth–Neptune travel, surface/telescope views, and UI hide/restore. Headless tests cannot establish visual smoothness, touch behavior, or rendered jitter.
-
-Exercise the [What-If acceptance checklist](docs/what-if.md) as well: baseline isolation, camera preservation, scheduled events, report horizons, ghost overlays, session recovery, branch export/sharing and physical stage motion.
-
-Then exercise:
-
-1. Reality initialization near 1 AU; Sandbox edit, undo and all integrators.
-2. Collision/tidal/black-hole/wormhole presets and their actual event/baseline behavior.
-3. 5,000 particles with performance HUD and auto quality.
-4. Launch, stage, insertion and deployment in the viewport.
-5. Fuel-aware scheduled burns, visual maneuver placement, preview and closest approach.
-6. Observation/comparison, shadow power, radio links, and rendezvous estimates.
-7. Record/import replay, scrub exact snapshots, return to live and export JSON.
-8. Camera bookmarks and scenario import/export, local save and backend sharing.
-9. Horizons loading, explicit fallback transport, mobile layout and keyboard accessibility.
-10. PNG/WebM export in the deployment browser and independent video playback.
-
-## Model limits
-
-- Continuous Earth-launch-to-Mars-capture has not been validated end-to-end. Lambert/patched-conic estimates require course corrections; cruise presets skip launch/escape.
-- Rocket dynamics use changing-mass point motion, approximate atmosphere and guidance. Planned burns are fuel-aware impulses; displayed duration is an estimate.
-- Surface landing is contact detection; terrain and autonomous descent are absent.
-- Moon phases/poles and geographic conventions are approximate. SSO-like presets do not include J2 precession.
-- Finite-disc shadows are geometric and use the strongest individual occulting disc. The isolated Earth scenario uses an explicitly labeled approximate solar direction. Radio power is a free-space estimate, not a full RF receiver model.
-- Lagrange markers assume the restricted circular three-body model; instantaneous period commensurability is not proof of resonant libration. Docking indicators do not join rigid bodies.
-- Replay shows captured states only; it does not invent arbitrary backward physics or intermediate states.
-- What-If uses controlled cloned Newtonian branches, not a continued Horizons baseline. Comparison is capped at 1,000 bodies/branch, 32 paths, 256 samples and a 12-second worker budget. Long horizons can be partial. Escape/capture crossings and maximum deviations are sampled rather than proof of long-term outcomes.
-- Sensitivity sweeps are coarse, bounded samples. Lambert/Hohmann estimates are not a fully flown mission. Optional split-screen comparison, a visual before/after scrubber and a new crossfading LOD system are not implemented.
-- Render interpolation adds one publication interval of visual latency without extrapolation; telemetry stays authoritative. Pause takes effect at the completed worker boundary; an outstanding batch can finish.
-- GPU gravity compute is unavailable; particles use GPU instancing and gravity remains CPU direct/tree evaluation.
-- Black-hole lensing is procedural, not full-scene geodesic tracing. Wormholes are experimental.
-- Consumed fuel, dissipation, staging and collisions cannot be undone by negative time.
-- Extremely rapid body motion can engulf a camera between frames; collision protection then projects to the permitted boundary. Absolute SI precision is bounded by Float64.
-- Backend tests emit an upstream AnyIO deprecation warning and a local pytest-cache permission warning; all 52 tests pass.
-
-Screenshots in docs/screenshots document earlier inspected UI states. Passing tests establishes the listed invariants, not certification of every feature request.
+Deployment should separately exercise Horizons availability, backend sharing, both transport paths, capture decoding, touch navigation, long missions and 5,000-particle render performance on the target hardware. Source packaging contains the frontend, backend, tests, documentation, catalog attribution and binary assets.

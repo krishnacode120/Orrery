@@ -1,5 +1,11 @@
 # Backend API
 
+## Offline astronomy catalog
+
+GET `/api/astronomy/metadata` returns source, license, retrieval/query information and counts. GET `/api/astronomy/catalog?q=Proxima&kind=all&limit=40` searches the offline snapshot (query <=120 characters, kind all/star/exoplanet, limit 1–100). GET `/api/astronomy/stars/{id}` returns one retained source record or 404. GET `/api/astronomy/systems` returns the five NASA composite host groups. These read-only endpoints never create physics objects. Existing CORS and rate limiting apply. Keep `src/astronomy/data` in backend deployments. See [data attribution](astronomy-data.md).
+
+
+
 FastAPI OpenAPI: /docs. SQLite file is configured with ORRERY_DB. CORS origins: ORRERY_ORIGINS. Limits: 32 MiB request body, 120 requests/minute/client per API process, 20,000 bodies and 512 sources. Public read URLs are capabilities; there is no authentication.
 
 | Method | Route | Behavior |

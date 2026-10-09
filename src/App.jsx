@@ -1,6 +1,8 @@
 import { Component, useEffect, useState, lazy, Suspense } from 'react';
 const PictureInPicture=lazy(()=>import('./components/Scene.jsx').then(m=>({default:m.PictureInPicture})));
 const Scene=lazy(()=>import('./components/Scene.jsx'));
+const UniverseScene=lazy(()=>import('./components/UniverseScene.jsx'));
+import {useExplorerStore} from './store/useExplorerStore.js';
 import {useUIStore} from './store/useUIStore.js';
 import HUD from './ui/HUD.jsx';
 import { GlobalStyle, Shell, Notice } from './ui/styles.js';
@@ -23,7 +25,7 @@ class SceneBoundary extends Component {
 
 export default function App() {
   usePrediction();useReplay();useWhatIf();
-  const panel=useSimStore(state=>!!state.scenario.view.panel),ui=useUIStore();
+  const panel=useSimStore(state=>!!state.scenario.view.panel),ui=useUIStore(),catalogActive=useExplorerStore(s=>s.active);
   const [ready,setReady] = useState(false), [storageError,setStorageError] = useState('');
   useEffect(() => {
     let cancelled = false;
@@ -52,14 +54,14 @@ export default function App() {
     const timer=setInterval(async()=>{
       if(pending)return;
       pending=true;
-      try { const experiment=useWhatIfStore.getState(),scenario=useSimStore.getState().scenario;await localScenario(experiment.active?experiment.original.scenario:scenario);if(experiment.active)await localExperiment({baseline:experiment.baseline,experiment:scenario,original:experiment.original.scenario,originalPaused:experiment.original.paused}); }
+      try { const experiment=useWhatIfStore.getState(),scenario=useSimStore.getState().scenario;await localScenario(experiment.active?experiment.original.scenario:useExplorerStore.getState().active?useExplorerStore.getState().baseline.scenario:scenario);if(experiment.active)await localExperiment({baseline:experiment.baseline,experiment:scenario,original:experiment.original.scenario,originalPaused:experiment.original.paused}); }
       catch(error) { setStorageError(`Autosave unavailable: ${error.message}`); }
       finally { pending=false; }
     },5000);
     return ()=>clearInterval(timer);
   },[ready]);
   return <><GlobalStyle /><Shell data-hidden={ui.hidden} data-top={ui.top} data-left={ui.left} data-right={ui.right} data-bottom={ui.bottom} data-hud={ui.hud} data-rail={ui.rail}>
-    <div className="viewport-stage" data-panel={panel} onDoubleClick={()=>{if(ui.hidden)ui.toggleInterface();}}><SceneBoundary><Suspense fallback={<div className="canvas-fallback">Preparing renderer…</div>}><Scene /></Suspense></SceneBoundary></div><Suspense fallback={null}><PictureInPicture/></Suspense><HUD />
+    <div className="viewport-stage" data-panel={panel} onDoubleClick={()=>{if(ui.hidden)ui.toggleInterface();}}><SceneBoundary key={catalogActive?'catalog':'simulation'}><Suspense fallback={<div className="canvas-fallback">Preparing renderer…</div>}>{catalogActive?<UniverseScene/>:<Scene/>}</Suspense></SceneBoundary></div>{!catalogActive&&<Suspense fallback={null}><PictureInPicture/></Suspense>}<HUD />
     {(!ready || storageError) && <Notice role="status">{!ready?'Loading scenario…':storageError}
       {storageError && <button style={{marginLeft:10}} onClick={()=>setStorageError('')}>Dismiss</button>}</Notice>}
   </Shell></>;

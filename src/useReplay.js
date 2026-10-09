@@ -11,7 +11,7 @@ export function replayFrame(index){
  useReplayStore.setState({index,playback:true});
 }
 export function enterReplay(){
- const sim=useSimStore.getState(),replay=useReplayStore.getState();if(sim.experimentActive)throw new Error('Exit or apply What-If before opening replay.');if(!replay.frames.length)throw new Error('Record or import snapshots first');
+ const sim=useSimStore.getState(),replay=useReplayStore.getState();if(sim.catalogActive)throw new Error('Return to simulation before replay.');if(sim.experimentActive)throw new Error('Exit or apply What-If before opening replay.');if(!replay.frames.length)throw new Error('Record or import snapshots first');
  if(!replay.playback)useReplayStore.setState({live:{scenario:structuredClone(sim.scenario),paused:sim.paused},recording:false});
  replayFrame(replay.index);
 }
@@ -26,7 +26,7 @@ export function useReplay(){
   let eventSerial=-1,lastCapture=0,lastPlay=0;
   const timer=setInterval(()=>{
    const sim=useSimStore.getState(),replay=useReplayStore.getState(),now=performance.now();
-   if(replay.recording&&!replay.playback&&(now-lastCapture>2000||sim.scenario.eventSerial!==eventSerial)){replay.capture(sim.scenario);lastCapture=now;eventSerial=sim.scenario.eventSerial;}
+   if(replay.recording&&!sim.catalogActive&&!replay.playback&&(now-lastCapture>2000||sim.scenario.eventSerial!==eventSerial)){replay.capture(sim.scenario);lastCapture=now;eventSerial=sim.scenario.eventSerial;}
    if(replay.playback&&replay.playing&&now-lastPlay>1000){lastPlay=now;if(replay.index>=replay.frames.length-1)useReplayStore.setState({playing:false});else replayFrame(replay.index+1);}
   },250);return()=>clearInterval(timer);
  },[]);

@@ -387,9 +387,17 @@ class Scenario(StrictModel):
                 value=self.view[key]
                 if isinstance(value, bool) or not isinstance(value, (int,float)) or not .01 <= value <= 1e6:
                     raise ValueError('Invalid display scale: '+key)
-        for key in ('smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'):
+        for key in ('smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip','habitableZone','interior','discoveryNotifications'):
             if key in self.view and not isinstance(self.view[key], bool):
                 raise ValueError('Invalid view flag: '+key)
+        if self.view.get('environment') not in (None,'magnetic','radiation'):
+            raise ValueError('Invalid environmental layer')
+        if self.view.get('notificationCategory') not in (None,'mission','science','physics','all'):
+            raise ValueError('Invalid notification category')
+        sensor = self.view.get('sensorView')
+        if sensor is not None:
+            if not isinstance(sensor,dict) or sensor.get('mode') not in ('forward','target','earth','sun') or isinstance(sensor.get('fov'),bool) or not isinstance(sensor.get('fov'),(int,float)) or not .1<=sensor['fov']<=120 or sensor.get('targetId') is not None and (not isinstance(sensor['targetId'],str) or len(sensor['targetId'])>80):
+                raise ValueError('Invalid optical sensor configuration')
         if self.view.get('navigation'):
             self.view['navigation']=NavigationConfig.model_validate(self.view['navigation']).model_dump(mode='json',exclude_unset=True)
         time_bookmarks=self.view.get('timeBookmarks',[])

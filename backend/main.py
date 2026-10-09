@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.db import initialize
-from backend.routers import horizons, presets, scenarios, mission
+from backend.routers import horizons, presets, scenarios, mission, astronomy
 
 
 @asynccontextmanager
@@ -69,3 +69,4 @@ app.include_router(horizons.router)
 app.include_router(scenarios.router)
 app.include_router(presets.router)
 app.include_router(mission.router)
+app.include_router(astronomy.router)

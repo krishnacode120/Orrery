@@ -1,3 +1,4 @@
+import './universe.css';
 import immersive from './immersive.css?inline';
 import styled,{createGlobalStyle} from 'styled-components';
 export const GlobalStyle=createGlobalStyle`

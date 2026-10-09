@@ -7,12 +7,12 @@ import {createBody} from './store/actions.js';
 import {viewSpace} from './components/viewSpace.js';
 import {sub} from './physics/units.js';
 export function usePrediction() {
- const revision=useSimStore(s=>s.revision),selected=useSimStore(s=>s.scenario.view.selected),duration=useSimStore(s=>s.scenario.view.predictionDuration),
+ const catalogActive=useSimStore(s=>s.catalogActive),revision=useSimStore(s=>s.revision),selected=useSimStore(s=>s.scenario.view.selected),duration=useSimStore(s=>s.scenario.view.predictionDuration),
  targetId=useSimStore(s=>s.scenario.view.targetId),enabled=useSimStore(s=>s.scenario.view.predictionEnabled),resolution=useSimStore(s=>s.scenario.view.predictionResolution),mass=useSimStore(s=>s.previewMass);
  const maneuverPreview=useUIStore(s=>s.maneuverPreview);
  const placement=useUIStore(s=>s.placementPreview),kind=useUIStore(s=>s.spawnKind),tool=useUIStore(s=>s.tool);
  useEffect(()=>{
- if(!enabled&&!placement){useSimStore.setState({prediction:null,predicting:false});return;}
+ if(catalogActive||!enabled&&!placement){useSimStore.setState({prediction:null,predicting:false});return;}
  let worker,cancelled=false;const controller=new AbortController();
  useSimStore.setState({prediction:null,predicting:false});
  const timer=setTimeout(async()=>{
@@ -29,5 +29,5 @@ export function usePrediction() {
  }catch(error){if(!cancelled)useSimStore.setState({predicting:false,error:'Prediction: '+error.message});}finally{worker?.terminate();}
  },placement?200:500);
  return()=>{cancelled=true;clearTimeout(timer);controller.abort();worker?.terminate();};
- },[revision,selected,targetId,duration,resolution,enabled,mass,placement,kind,tool,maneuverPreview]);
+ },[catalogActive,revision,selected,targetId,duration,resolution,enabled,mass,placement,kind,tool,maneuverPreview]);
 }

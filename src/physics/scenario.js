@@ -111,7 +111,10 @@ export function validateScenario(input) {
   }
   require(['scientific','visibility','educational','custom'].includes(s.view.scaleMode??'visibility'),'Invalid scale model');
   for(const key of ['distanceScale','planetScale','moonScale','spacecraftScale','trailScale','labelScale'])if(s.view[key]!==undefined)require(finite(s.view[key])&&s.view[key]>=.01&&s.view[key]<=1e6,'Invalid display scale: '+key);
-  for(const key of ['smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
+  for(const key of ['smoothMotion','pauseVisualEffects','realDistances','realRadii','showMoons','showSOI','autoArrival','predictionPaths','transferPath','showAcceleration','showBarycenter','miniMap','pip','habitableZone','interior','discoveryNotifications'])if(s.view[key]!==undefined)require(typeof s.view[key]==='boolean','Invalid view flag: '+key);
+  if(s.view.environment!=null)require(['magnetic','radiation'].includes(s.view.environment),'Invalid environmental layer');
+  if(s.view.notificationCategory!=null)require(['mission','science','physics','all'].includes(s.view.notificationCategory),'Invalid notification category');
+  if(s.view.sensorView!=null){const v=s.view.sensorView;require(v&&typeof v==='object'&&['forward','target','earth','sun'].includes(v.mode)&&finite(v.fov)&&v.fov>=.1&&v.fov<=120&&(v.targetId==null||typeof v.targetId==='string'&&v.targetId.length<=80),'Invalid optical sensor configuration');}
   require(Array.isArray(s.view.savedCameras)&&s.view.savedCameras.length<=100&&Array.isArray(s.view.keyframes)&&s.view.keyframes.length<=32,'Invalid camera collection');
   for(const c of [...s.view.savedCameras,...s.view.keyframes,...(s.view.camera?[s.view.camera]:[])])require((validPose(c)||vector(c.position)&&vector(c.target))&&['system','planetary','earth','vehicle','true'].includes(c.scale),'Invalid camera pose');
   s.settings = { ...DEFAULT_SETTINGS, ...s.settings };

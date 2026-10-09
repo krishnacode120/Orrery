@@ -1,0 +1,10 @@
+{
+  "retrievedAt": "2026-10-09T05:18:54.889962+00:00",
+  "frame": "J2000 equatorial; application rotates into J2000 ecliptic",
+  "hygUrl": "https://raw.githubusercontent.com/astronexus/HYG-Database/main/hyg/CURRENT/hygdata_v41.csv",
+  "hygLicense": "CC BY-SA 4.0",
+  "archiveUrl": "https://exoplanetarchive.ipac.caltech.edu/TAP/sync",
+  "archiveTable": "pscomppars",
+  "archiveQuery": "select pl_name,hostname,ra,dec,sy_dist,st_mass,st_rad,st_teff,st_lum,st_spectype,pl_orbper,pl_orbsmax,pl_rade,pl_bmasse,pl_bmassprov,pl_orbeccen,pl_eqt,pl_orbincl,discoverymethod,disc_year,pl_radeerr1,pl_radeerr2,pl_bmasseerr1,pl_bmasseerr2 from pscomppars where hostname in ('Proxima Cen','TRAPPIST-1','Kepler-186','Kepler-452','TOI-700') order by hostname,pl_orbper",
+  "notice": "Composite parameters may combine different publications; missing values are null. Snapshot, not a live discovery feed."
+}

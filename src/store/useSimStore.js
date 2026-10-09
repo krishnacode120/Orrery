@@ -17,6 +17,7 @@ export const useSimStore = create((set, get) => ({
   prediction: null, predicting: false, previewMass: null, fps: 0, frameMs: 0, qualityLevel: 'medium',
   undoCount: 0, redoCount: 0,
   edit(recipe) {
+    if(get().catalogActive)throw new Error('Return to the active simulation before editing catalog objects.');
     if(get().replayActive)throw new Error('Recorded replay is read-only. Return to Live before editing physics.');
     // Assignment-expression recipes are common in controls. Only an explicit
     // scenario return value means replacement; scalar/array returns are ignored.
@@ -29,9 +30,9 @@ export const useSimStore = create((set, get) => ({
     set({ scenario: next, revision: get().revision+1, stats: null, error: null, prediction:null, ...historyCounts() });
   },
   replace(s) { if(get().experimentActive)throw new Error('Apply or exit What-If before loading another scenario.');const next = validateScenario(s); get().edit(() => next); set({ paused: true });useCameraStore.getState().request('load'); },
-  undo() { if(get().replayActive)return get().fail('Return to Live before Undo.');set({ scenario: travel(get().scenario,'undo'), revision: get().revision+1,
+  undo() { if(get().catalogActive)return get().fail('Return to simulation before Undo.'); if(get().replayActive)return get().fail('Return to Live before Undo.');set({ scenario: travel(get().scenario,'undo'), revision: get().revision+1,
     stats: null, paused: true, ...historyCounts() }); },
-  redo() { if(get().replayActive)return get().fail('Return to Live before Redo.');set({ scenario: travel(get().scenario,'redo'), revision: get().revision+1,
+  redo() { if(get().catalogActive)return get().fail('Return to simulation before Redo.'); if(get().replayActive)return get().fail('Return to Live before Redo.');set({ scenario: travel(get().scenario,'redo'), revision: get().revision+1,
     stats: null, paused: true, ...historyCounts() }); },
   reality() { get().replace(initial()); },
   sandbox() { get().edit(s => { s.mode = 'sandbox'; s.name = 'Solar system sandbox'; s.ephemeris=null;if(s.provenance.source==='horizons')s.provenance.note='Horizons initialization, locally propagated Newtonian state'; }); },
@@ -49,9 +50,9 @@ export const useSimStore = create((set, get) => ({
     const s=initial();s.jd=jd;s.provenance.epochJD=jd;s.bodies=realityBodies(jd);
     get().replace(s);
   },
-  togglePause() { if(get().replayActive){const replay=useReplayStore.getState();useReplayStore.setState({playing:!replay.playing});return;}set({ paused: !get().paused }); },
-  step() { if(get().replayActive)return get().fail('Use the recorded-frame scrubber to step replay.');set({ paused: true, stepRequest: true }); },
-  frame({ jd, stats, state, render, transport, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry, experimentEvents, settings }) {
+  togglePause() { if(get().catalogActive)return; if(get().replayActive){const replay=useReplayStore.getState();useReplayStore.setState({playing:!replay.playing});return;}set({ paused: !get().paused }); },
+  step() { if(get().catalogActive)return; if(get().replayActive)return get().fail('Use the recorded-frame scrubber to step replay.');set({ paused: true, stepRequest: true }); },
+  frame({ jd, stats, state, render, transport, stepped=false, bodies, count, events, eventSerial, dynamic=[], maneuvers, telemetry, experimentEvents, settings }) {
     const previousEventSerial=get().scenario.eventSerial??0;
     const metadata=bodies??get().scenario.bodies;
     const updates=new Map(dynamic.map(b=>[b.id,b]));
@@ -61,7 +62,7 @@ export const useSimStore = create((set, get) => ({
       experimentEvents:experimentEvents??get().scenario.experimentEvents,settings:settings??get().scenario.settings,
       bodies: metadata.map((b,i) => ({ ...b,...updates.get(b.id),
       position: Array.from(state.subarray(i*6,i*6+3)), velocity: Array.from(state.subarray(i*6+3,i*6+6)) })) },
-      stats, render, transport, stepRequest: false });
+      stats, render, transport, stepRequest: stepped?false:get().stepRequest });
     const selected=get().scenario.bodies.find(b=>b.id===get().scenario.view.selected);
     const view=get().scenario.view;
     if(view.autoArrival&&['follow','chase','rocket','satellite'].includes(view.cameraMode)&&(view.cameraTarget??view.selected)===selected?.id&&selected?.parentId===view.targetId&&events?.some(e=>e.id>previousEventSerial&&e.kind==='soi'&&e.bodyIds[0]===selected.id)){get().configureView({scale:'planetary',cameraMode:'follow',cameraTarget:selected.parentId,camera:null});useCameraStore.getState().request('focus',{id:selected.parentId,mode:'follow'});}

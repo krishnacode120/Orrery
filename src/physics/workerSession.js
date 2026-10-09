@@ -9,7 +9,7 @@ export function startWorkerSession({createRuntime,getState,onFrame,onError,share
  const fault=error=>{
   if(pending){pending.reject(error);return;}
   const owner=revision;dispose();
-  if(!stopped&&getState().revision===owner&&!getState().replayActive){failedRevision=owner;onError(error.message);}
+  if(!stopped&&getState().revision===owner&&!getState().replayActive&&!getState().catalogActive){failedRevision=owner;onError(error.message);}
  };
  const request=async(method,args)=>{
   let rejectRequest,deadline;
@@ -24,7 +24,7 @@ export function startWorkerSession({createRuntime,getState,onFrame,onError,share
   let owner=getState().revision,nextDelay=33;
   try{
    let current=getState();
-   if(current.replayActive||failedRevision===owner){last=now();nextDelay=100;return;}
+   if(current.replayActive||current.catalogActive||failedRevision===owner){last=now();nextDelay=100;return;}
    if(!runtime){
     const identity={};token=identity;
     runtime=createRuntime(error=>{if(token===identity)fault(error instanceof Error?error:new Error(String(error)));});
@@ -35,21 +35,22 @@ export function startWorkerSession({createRuntime,getState,onFrame,onError,share
     buffers=initialized;revision=owner;last=now();
    }
    current=getState();
-   if(current.replayActive||current.revision!==owner){nextDelay=0;return;}
+   if(current.replayActive||current.catalogActive||current.revision!==owner){nextDelay=0;return;}
    const time=now(),seconds=current.stepRequest?Math.sign(current.scenario.settings.timeScale)*current.scenario.settings.stepSeconds:
     current.paused?0:Math.min((time-last)/1000,.1)*current.scenario.settings.timeScale;
    last=time;
+   const stepped=!!current.stepRequest;
    const result=await request('advance',[seconds,current.scenario.view?.selected]);
    const fresh=getState();
-   if(stopped||fresh.replayActive||fresh.revision!==owner)return;
+   if(stopped||fresh.replayActive||fresh.catalogActive||fresh.revision!==owner)return;
    const count=result.count;
    if(!Number.isInteger(count)||count<0||count>MAX_BODIES)throw new Error('Invalid worker body count');
    const state=new Float64Array(buffers?.state??result.state),render=new Float32Array(buffers?.render??result.render);
    if(state.length<count*6||render.length<count*3)throw new Error('Incomplete worker buffers');
-   onFrame({...result,state:state.slice(0,count*6),render:render.slice(0,count*3),transport:shared?'Shared memory':'Transferable messages'});
+   onFrame({...result,stepped,state:state.slice(0,count*6),render:render.slice(0,count*3),transport:shared?'Shared memory':'Transferable messages'});
   }catch(error){
    dispose();
-   if(!stopped&&getState().revision===owner&&!getState().replayActive){
+   if(!stopped&&getState().revision===owner&&!getState().replayActive&&!getState().catalogActive){
     failedRevision=owner;onError(error.message+'. Edit a parameter or return to Reality to retry.');
     nextDelay=100;
    }else nextDelay=0;

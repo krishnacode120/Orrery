@@ -13,7 +13,7 @@ export const useWhatIfStore=create((set,get)=>({
  active:false,original:null,baseline:null,originalHistory:null,originalLayout:null,branchId:null,parentId:null,changes:[],branches:[],result:null,sweep:null,busy:false,error:null,job:null,serial:0,autoCompare:true,
  options:{duration:DAY*365.25,resolution:80,maxMs:4000},overlay:true,baselinePaths:true,experimentPaths:true,before:null,after:null,chaos:[],
  begin(){
-  if(get().active)return;if(useSimStore.getState().replayActive)throw new Error('Return to Live before What-If.');
+  if(get().active)return;if(useSimStore.getState().catalogActive)throw new Error('Return to the simulation before What-If.');if(useSimStore.getState().replayActive)throw new Error('Return to Live before What-If.');
   const sim=useSimStore.getState(),baseline=clone(sim.scenario),branchId=id(),parentId=baseline.branch?.id??id();
   const scenario=validateScenario({...clone(baseline),mode:'sandbox',ephemeris:null,branch:{id:branchId,parentId,epochJD:baseline.jd,name:'Experiment'},view:{...baseline.view,panel:'whatif'}});
   set({active:true,original:{scenario:baseline,paused:sim.paused},baseline,originalHistory:checkpointHistory(),originalLayout:useUIStore.getState().layout,branchId,parentId,changes:[],branches:[],result:null,sweep:null,error:null,before:null,after:null,chaos:[],job:null,busy:false,serial:get().serial+1});
