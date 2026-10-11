@@ -70,7 +70,7 @@ export const DEFAULT_VIEW={quality:'auto',exaggeration:1500,scale:'system',camer
   navigation:{...CAMERA_DEFAULTS},timeBookmarks:[],showLagrange:false,terminator:false,textScale:1,highContrast:false,reducedMotion:false,camera:null,keyframes:[],savedCameras:[],exposure:1};
 export function baseScenario(name='Solar system') {
   const jd=julianDate();
-  return {version:2,name,mode:'sandbox',jd,bodies:[],settings:{...DEFAULT_SETTINGS},events:[],eventSerial:0,
+  return {version:2,schemaVersion:2,createdByVersion:'1.1.0',name,mode:'sandbox',jd,bodies:[],settings:{...DEFAULT_SETTINGS},events:[],eventSerial:0,
     view:structuredClone(DEFAULT_VIEW),tags:[],description:'',provenance:{source:'custom',epochJD:jd,note:''},
     maneuvers:[],stations:[],telemetry:[],mission:{name,epochJD:jd}};
 }

@@ -76,7 +76,10 @@ def telemetry(scenario_id: str, format: str = 'json'):
 
 @router.get('/missions')
 def missions():
-    return [{'id': 'rocket', 'name': 'Two-stage launch', 'model': 'point mass, exponential atmosphere, feedback guidance',
+    return [{'id': 'earth-mars-reference', 'name': 'Earth → Mars Reference Mission', 'version': 1,
+             'launchUTC': '2031-01-01T00:00:00Z', 'model': 'JPL approximate initialization, full N-body execution, fuel-aware impulse transfer',
+             'validation': 'NOT RUN: run the local scientific workbench to produce measured certification'},
+            {'id': 'rocket', 'name': 'Two-stage launch', 'model': 'point translation, layered dry atmosphere approximation, feedback guidance',
              'targetAltitude': 200000, 'stageCount': 2},
             {'id': 'constellation', 'name': '24 satellite constellation', 'planes': 6, 'altitude': 20200000}]
 

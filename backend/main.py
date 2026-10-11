@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from backend.db import initialize
-from backend.routers import horizons, presets, scenarios, mission, astronomy
+from backend.routers import horizons, presets, scenarios, mission, astronomy, definitions
 
 
 @asynccontextmanager
@@ -20,7 +20,7 @@ async def lifespan(app):
         yield
 
 
-app = FastAPI(title='Orrery API', version='1.0.0', lifespan=lifespan)
+app = FastAPI(title='Orrery API', version='1.1.0', lifespan=lifespan)
 buckets = OrderedDict()
 MAX_BYTES = 32 * 1024 * 1024
 
@@ -70,3 +70,4 @@ app.include_router(scenarios.router)
 app.include_router(presets.router)
 app.include_router(mission.router)
 app.include_router(astronomy.router)
+app.include_router(definitions.router)

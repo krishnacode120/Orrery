@@ -5,14 +5,14 @@ export function deltaVBudget(r) {
  if(!r)return {stages:[],total:0};
  const stages=r.stages.slice(r.stage).map((st,i)=>{
   const upper=r.payloadMass+r.stages.slice(r.stage+i+1).reduce((m,x)=>m+x.dryMass+x.fuel,0);
-  return st.isp*G0*Math.log((upper+st.dryMass+st.fuel)/(upper+st.dryMass));
+  return (st.vacuumIsp??st.isp)*G0*Math.log((upper+st.dryMass+st.fuel)/(upper+st.dryMass));
  });return {stages,total:stages.reduce((s,x)=>s+x,0)};
 }
 export function applyFuelBurn(body,dv) {
  const r=body.rocket;if(!r)throw new Error('A rocket engine and propellant are required');
- const st=r.stages[r.stage],speed=norm(dv),before=rocketMass(r),used=before*(1-Math.exp(-speed/(st.isp*G0)));
+ const st=r.stages[r.stage],speed=norm(dv),before=rocketMass(r),used=before*(1-Math.exp(-speed/((st.vacuumIsp??st.isp)*G0)));
  if(used>st.fuel+1e-8)throw new Error('Insufficient propellant in active stage for this burn');
- st.fuel=Math.max(0,st.fuel-used);body.mass=rocketMass(r);body.velocity=add(body.velocity,dv);
+ st.fuel=Math.max(0,st.fuel-used);r.consumedPropellant=(r.consumedPropellant??0)+used;r.propulsiveDeltaV=(r.propulsiveDeltaV??0)+speed;body.mass=rocketMass(r);body.velocity=add(body.velocity,dv);
  return used;
 }
 export function attitude(body,primary,mode) {
@@ -39,7 +39,7 @@ export function flightEvents(s,dt,notify) {
   }
   data.radial=radial;b.metadata.flight=data;
   const vehicle=b.rocket??b.spacecraft;
-  if(vehicle.attitudeMode&&vehicle.attitudeMode!=='launch')vehicle.orientation=attitude(b,primary,vehicle.attitudeMode);
+  if(vehicle.attitude?.mode!=='rigid'&&vehicle.attitudeMode&&vehicle.attitudeMode!=='launch')vehicle.orientation=attitude(b,primary,vehicle.attitudeMode);
   if(vehicle.landingEnabled&&norm(r)<=primary.radius+b.radius&&!b.locked){
    const omega=2*Math.PI/primary.spin.period,ground=add(primary.velocity,cross(scale(unit(primary.spin.axis),omega),r)),relative=sub(b.velocity,ground);
    const safe=norm(relative)<(vehicle.landingSpeed??5);

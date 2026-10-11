@@ -26,9 +26,11 @@ export function extremeEvents(bodies,settings,previous,dt,jd,emit) {
       bodies=next;Object.assign(hole,grown);
     }
   }
+  const mouths=bodies.filter(b=>b.type==='wormholeMouth'&&b.wormhole);
+  if(!mouths.length)return bodies;
   for(const b of [...bodies]) {
     if(b.locked||b.type==='wormholeMouth'||(b.portalCooldownJD??0)>jd)continue;
-    for(const mouth of bodies.filter(b=>b.type==='wormholeMouth'&&b.wormhole)) {
+    for(const mouth of mouths) {
       const exit=bodies.find(x=>x.id===mouth.wormhole.pairId&&x.wormhole);
       if(!exit || !sphereContact({...mouth,radius:mouth.wormhole.throatRadius},{...b,radius:0},previous))continue;
       const transformed=transformMouth(sub(b.position,mouth.position),mouth,exit);

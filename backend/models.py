@@ -53,6 +53,15 @@ class ConfigBlock(BaseModel):
     model_config = ConfigDict(extra='allow', allow_inf_nan=False)
 
 class EngineStage(ConfigBlock):
+    seaLevelThrust: FiniteFloat | None = Field(default=None, gt=0)
+    vacuumThrust: FiniteFloat | None = Field(default=None, gt=0)
+    seaLevelIsp: FiniteFloat | None = Field(default=None, gt=0)
+    vacuumIsp: FiniteFloat | None = Field(default=None, gt=0)
+    minThrottle: FiniteFloat = Field(default=0, ge=0, le=1)
+    maxThrottle: FiniteFloat = Field(default=1, ge=0, le=1)
+    maxIgnitions: int | None = Field(default=None, ge=1, le=10000)
+    restartable: bool = True
+    gimbalRange: FiniteFloat = Field(default=0, ge=0, le=30)
     engineCount: int = Field(default=1, ge=1, le=100)
     name: str = Field(max_length=120)
     dryMass: FiniteFloat = Field(gt=0)
@@ -249,6 +258,7 @@ class Settings(StrictModel):
     gr: bool = False
     c: FiniteFloat = Field(default=299792458, ge=1e5, le=1e12)
     solver: Literal['auto','direct','tree'] = 'auto'
+    computeMode: Literal['cpu','gpu','auto'] = 'cpu'
     fragmentCount: int = Field(default=8, ge=2, le=64)
     fragmentSpread: FiniteFloat = Field(default=1, ge=0, le=10)
     fragmentMinMass: FiniteFloat = Field(default=1, gt=0)
@@ -325,6 +335,8 @@ class ScenarioBranch(StrictModel):
 
 
 class Scenario(StrictModel):
+    schemaVersion: Literal[1, 2] = 2
+    createdByVersion: str = Field(default='1.0.0', max_length=64)
     version: Literal[1, 2]
     name: str = Field(min_length=1, max_length=120)
     mode: Literal['reality', 'sandbox']

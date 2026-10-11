@@ -15,7 +15,8 @@ export function validateScenario(input) {
   require(input.view==null||typeof input.view==='object'&&!Array.isArray(input.view),'View must be an object');
   const s = structuredClone(input);
   require(s?.version === 1 || s?.version === 2, 'Unsupported scenario version');
-  s.version=2;
+  require(s.schemaVersion==null||[1,2].includes(s.schemaVersion),'Unsupported scenario schema');
+  s.version=2;s.schemaVersion=2;s.createdByVersion??='1.0.0';require(typeof s.createdByVersion==='string'&&s.createdByVersion.length<=64,'Invalid app version');
   s.view={...structuredClone(DEFAULT_VIEW),...s.view,units:{...DEFAULT_VIEW.units,...s.view?.units}};
   s.view.navigation=validateNavigation(s.view.navigation);s.view.cameraMode=cameraMode(s.view.cameraMode);
   for(const [key,limit] of [['savedCameras',100],['keyframes',32]])require(Array.isArray(s.view[key])&&s.view[key].length<=limit&&s.view[key].every(c=>c&&typeof c==='object'&&!Array.isArray(c)),'Invalid '+key);
@@ -71,7 +72,7 @@ export function validateScenario(input) {
       const r=b.rocket;require(finite(r.separationSpeed??1)&&(r.separationSpeed??1)>=0&&(r.separationSpeed??1)<=100,'Invalid separation speed');require(Array.isArray(r.stages)&&r.stages.length>=1&&r.stages.length<=8,'Invalid rocket stages');
       require(Number.isInteger(r.stage)&&r.stage>=0&&r.stage<r.stages.length&&r.payloadMass>=0&&r.throttle>=0&&r.throttle<=1
         &&r.targetAltitude>=100000&&r.targetAltitude<=1e8&&r.area>0&&r.cd>=0&&vector(r.orientation),'Invalid rocket configuration');
-      for(const stage of r.stages){require(Number.isInteger(stage.engineCount??1)&&(stage.engineCount??1)>0&&(stage.engineCount??1)<=100,'Invalid engine count');}
+      for(const stage of r.stages){for(const key of ['seaLevelThrust','vacuumThrust','seaLevelIsp','vacuumIsp'])if(stage[key]!=null)require(finite(stage[key])&&stage[key]>0,'Invalid engine '+key);require((stage.minThrottle??0)>=0&&(stage.maxThrottle??1)<=1&&(stage.minThrottle??0)<=(stage.maxThrottle??1),'Invalid throttle range');if(stage.maxIgnitions!=null)require(Number.isInteger(stage.maxIgnitions)&&stage.maxIgnitions>=1&&stage.maxIgnitions<=10000,'Invalid ignition limit');require(Number.isInteger(stage.engineCount??1)&&(stage.engineCount??1)>0&&(stage.engineCount??1)<=100,'Invalid engine count');}
       for(const stage of r.stages)require(stage.dryMass>0&&stage.fuel>=0&&stage.fuel<=stage.capacity&&stage.thrust>0&&stage.isp>0,'Invalid engine/fuel configuration');
       b.mass=rocketMass(r);
     }
@@ -79,6 +80,9 @@ export function validateScenario(input) {
       &&b.spacecraft.solarWatts>=0&&b.spacecraft.loadWatts>=0&&vector(b.spacecraft.orientation),'Invalid spacecraft configuration');
     if(b.spacecraft?.transmitterPower!==undefined)require(finite(b.spacecraft.transmitterPower)&&b.spacecraft.transmitterPower>=0&&b.spacecraft.transmitterPower<=1e12,'Invalid transmitter power');
     if(b.spacecraft?.antennaGain!==undefined)require(finite(b.spacecraft.antennaGain)&&Math.abs(b.spacecraft.antennaGain)<=100,'Invalid antenna gain');
+    const vehicle=b.rocket??b.spacecraft;
+    if(vehicle?.attitude){const a=vehicle.attitude;require(['orientation','rigid'].includes(a.mode),'Invalid attitude model');if(a.quaternion)require(Array.isArray(a.quaternion)&&a.quaternion.length===4&&a.quaternion.every(finite)&&Math.hypot(...a.quaternion)>0,'Invalid attitude quaternion');for(const key of ['angularVelocity','torque','rcsTorque'])if(a[key])require(vector(a[key]),'Invalid attitude vector');if(a.inertia)require(vector(a.inertia)&&a.inertia.every(x=>x>0),'Invalid inertia');}
+    if(vehicle?.rcs){const r=vehicle.rcs;require(finite(r.fuel)&&r.fuel>=0&&r.fuel<=b.mass,'Invalid RCS fuel');for(const key of ['thrust','torque','isp','leverArm'])if(r[key]!=null)require(finite(r[key])&&r[key]>0,'Invalid RCS '+key);for(const key of ['translation','rotation'])if(r[key])require(vector(r[key])&&r[key].every(x=>Math.abs(x)<=1),'Invalid RCS command');}
     b.collisionMode ??= 'inherit'; b.disrupted ??= false;
     require(['inherit','none','merge','bounce','fragment'].includes(b.collisionMode),'Invalid body collision mode');
     require(typeof b.disrupted==='boolean','Invalid disruption flag');
@@ -120,6 +124,7 @@ export function validateScenario(input) {
   s.settings = { ...DEFAULT_SETTINGS, ...s.settings };
   const p = s.settings;
   require(['auto','direct','tree'].includes(p.solver),'Invalid gravity solver');
+  require(['cpu','gpu','auto'].includes(p.computeMode),'Invalid compute mode');
   require(Number.isInteger(p.fragmentCount)&&p.fragmentCount>=2&&p.fragmentCount<=64,'Fragment count must be 2–64');
   require(finite(p.fragmentMinMass)&&p.fragmentMinMass>0&&finite(p.fragmentSpread)&&p.fragmentSpread>=0&&p.fragmentSpread<=10,'Invalid fragment properties');
   require(['equal','varied'].includes(p.fragmentDistribution),'Invalid fragment mass distribution');

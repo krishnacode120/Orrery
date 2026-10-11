@@ -1,3 +1,5 @@
+import {attitudeStep,rcsStep,dockingStep} from './dynamics.js';
+import {flightAtmosphere} from './atmosphere.js';
 import {flightEvents,applyFuelBurn} from './flight.js';
 import {applyOperation} from './experimentOps.js';
 import {sunlight,observingStar,signalLink} from './observations.js';
@@ -39,12 +41,15 @@ export class Engine {
     const s=this.s;
     const notify=(kind,message,ids)=>this.log(kind,message,ids,jd);
     const spawn=b=>{if(s.bodies.length>=MAX_BODIES)throw new Error('Body capacity reached during staging');s.bodies.push(b);this.topologyRevision++;};
-    for(const b of [...s.bodies]) {
+    for(const b of s.bodies.filter(b=>b.rocket||b.spacecraft)) {
       const parent=s.bodies.find(p=>p.id===b.parentId);
+      const rcsAcceleration=!b.locked&&dt>0?rcsStep(b,dt):[0,0,0];
       if(b.rocket) {
         const previousPhase=b.rocket.phase;
         if(previousPhase==='prelaunch'&&parent&&dt>0){const axis=unit(parent.spin.axis),rotation=2*Math.PI/parent.spin.period,r=rotateAxis(sub(b.position,parent.position),axis,rotation*dt);b.position=add(parent.position,r);b.velocity=add(parent.velocity,cross(scale(axis,rotation),r));}
+        b.rocket.nonGravitationalAcceleration=[0,0,0];
         propulsion(b,parent,dt,jd,s.settings,notify,spawn);
+        b.rocket.nonGravitationalAcceleration=add(b.rocket.nonGravitationalAcceleration??[0,0,0],rcsAcceleration);
         if(b.rocket.phase!==previousPhase)this.log('mission',b.name+': '+previousPhase+' → '+b.rocket.phase,[b.id],jd);
         if(b.rocket.deployRequested && !b.rocket.deployed) {
           const id=b.id+'-payload',mass=b.rocket.payloadMass;
@@ -55,6 +60,10 @@ export class Engine {
         }
       }
       if(b.spacecraft && dt>0) {
+        b.spacecraft.nonGravitationalAcceleration=rcsAcceleration;
+        if(!b.locked){b.spacecraft.orientation=attitudeStep(b,b.spacecraft.orientation,dt);
+          const aero=b.spacecraft.aerodynamics;if(aero&&parent){const r=sub(b.position,parent.position),v=sub(sub(b.velocity,parent.velocity),cross(scale(unit(parent.spin.axis),2*Math.PI/parent.spin.period),r)),air=flightAtmosphere(parent,norm(r)-parent.radius,norm(v),aero.noseRadius??b.radius),drag=air.q*(aero.cd??.5)*(aero.area??1)/Math.max(b.mass,1);b.velocity=sub(b.velocity,scale(unit(v),Math.min(norm(v),drag*dt)));b.spacecraft.nonGravitationalAcceleration=sub(rcsAcceleration,scale(unit(v),drag));b.spacecraft.atmosphericFlight={...air,altitude:norm(r)-parent.radius,deceleration:drag};}
+        }
         const sun=observingStar(s,b),light=sunlight(b,sun,s.bodies),illuminated=light.fraction>0;
         const previousLight=b.spacecraft.sunlightState;
         if(previousLight&&previousLight!==light.state)notify('eclipse',b.name+': '+previousLight+' → '+light.state+(light.occluder?' behind '+s.bodies.find(x=>x.id===light.occluder)?.name:''),[b.id,...(light.occluder?[light.occluder]:[])]);
@@ -88,8 +97,9 @@ export class Engine {
       }catch(error){const current=this.s.experimentEvents.find(e=>e.id===event.id);current.executed=true;current.failed=error.message;current.actualJD=jd;this.log('experiment','Scheduled change rejected: '+error.message,[event.operation.bodyId].filter(Boolean),jd);}
     }
   }
-  advance(seconds) {
+  advance(seconds,{deterministic=false,maxSteps=512}={}) {
     if(!Number.isFinite(seconds))throw new Error('Invalid elapsed time');
+    if(!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>200000)throw new Error('Invalid deterministic step budget');
     const started=performance.now();let advanced=0,steps=0,rejected=0,lastDt=0,errorEstimate=0;
     const p=this.s.settings,s=this.s;
     if(s.mode==='reality') {
@@ -103,12 +113,13 @@ export class Engine {
       });
     } else {
       const boundary=seconds>=0?(SANDBOX_MAX_JD-1e-6-s.jd)*DAY:(MIN_JD-s.jd)*DAY;
-      const target=Math.sign(seconds)*Math.min(Math.abs(seconds),Math.abs(boundary),512*p.stepSeconds);
-      while(Math.abs(target-advanced)>1e-9 && steps<512 && (steps===0||performance.now()-started<12)) {
+      const target=Math.sign(seconds)*Math.min(Math.abs(seconds),Math.abs(boundary),(deterministic?maxSteps:512)*p.stepSeconds);
+      while(Math.abs(target-advanced)>1e-9 && steps<(deterministic?maxSteps:512) && (deterministic||steps===0||performance.now()-started<12)) {
         const jd=s.jd+advanced/DAY;
         if(target>0){this.scheduled(jd);this.burns(jd);}
         let maximum=p.adaptive?accelerationTimestep(s.bodies,p):p.stepSeconds;
         if(s.bodies.some(b=>b.rocket && b.rocket.engineOn))maximum=Math.min(maximum,.25);
+        if(s.bodies.some(b=>(b.rocket??b.spacecraft)?.attitude?.mode==='rigid'||(b.rocket??b.spacecraft)?.rcs||b.spacecraft?.aerodynamics))maximum=Math.min(maximum,.25);
         const planned=[...s.maneuvers,...s.experimentEvents].filter(n=>!n.executed&&n.jd>jd+1e-9).map(n=>(n.jd-jd)*DAY);
         if(target>0&&planned.length)maximum=Math.min(maximum,...planned);
         if(maximum<p.minStep)throw new Error('Required timestep below minimum; lower minimum step or resolve the encounter');
@@ -116,22 +127,24 @@ export class Engine {
         let dt=Math.sign(target)*Math.min(maximum,Math.abs(target-advanced));
         const previous=dt>0?new Map(s.bodies.map(b=>[b.id,[...b.position]])):null;
         const encounterBodies=this.encounterPair?.map(id=>s.bodies.find(b=>b.id===id)),oldEncounter=encounterBodies?.every(Boolean)?{r:sub(encounterBodies[0].position,encounterBodies[1].position),v:sub(encounterBodies[0].velocity,encounterBodies[1].velocity)}:null;
-        const splitPropulsion=s.bodies.some(b=>b.rocket && b.rocket.engineOn);
+        const splitPropulsion=s.bodies.some(b=>b.rocket && b.rocket.engineOn||(b.rocket??b.spacecraft)?.rcs||b.spacecraft?.aerodynamics);
         if(dt>0&&splitPropulsion)this.vehicles(dt/2,jd);
         if(p.integrator==='dopri') {
           // Thrust-driven vehicles use a capped fixed RK4 gravity substep; a DP
           // rejection cannot roll back already emitted exhaust/staging.
-          if(s.bodies.some(b=>b.rocket && b.rocket.engineOn))rk4(s.bodies,dt,p);
+          if(splitPropulsion)rk4(s.bodies,dt,p);
           else {const accepted=dormandPrince(s.bodies,dt,p);dt=accepted.dt;this.nextStep=Math.max(p.minStep,accepted.nextStep);rejected+=accepted.rejected;errorEstimate=accepted.error;}
         } else (p.integrator==='rk4'?rk4:verlet)(s.bodies,dt,p);
         if(dt>0){for(const b of s.bodies)if(b.locked&&(b.rocket?.phase==='prelaunch'||b.metadata.surfaceBound)){const parent=s.bodies.find(x=>x.id===b.parentId),old=previous.get(b.parentId);if(parent&&old)b.position=add(b.position,sub(parent.position,old));}this.vehicles(splitPropulsion?dt/2:dt,jd+dt/DAY);}
         if(s.bodies.some(b=>!b.position.every(Number.isFinite)||!b.velocity.every(Number.isFinite)))throw new Error('Physics state overflow; reduce timestep');
         if(oldEncounter){const [vehicle,targetBody]=encounterBodies,r=sub(vehicle.position,targetBody.position),change=sub(r,oldEncounter.r),fraction=Math.max(0,Math.min(1,-dot(oldEncounter.r,change)/(dot(change,change)||1))),distance=norm(add(oldEncounter.r,scale(change,fraction)));
          if(!this.encounter||distance<this.encounter.distance)this.encounter={bodyId:vehicle.id,targetId:targetBody.id,distance,jd:s.jd+(advanced+dt*fraction)/DAY,relativeSpeed:norm(add(oldEncounter.v,scale(sub(sub(vehicle.velocity,targetBody.velocity),oldEncounter.v),fraction))),resolutionSeconds:Math.abs(dt),model:'Closest sampled integration segment; linear interpolation within a physics step.'};}
+        if(this.recordedSteps){if(this.recordedSteps.length>=200000)throw new Error('Deterministic recording budget reached');this.recordedSteps.push(dt);}
         advanced+=dt;lastDt=dt;steps++;
         if(dt>0) {
           const emit=(before,after,event)=>this.account(before,after,event,s.jd+advanced/DAY);
           flightEvents(s,dt,(kind,message,ids)=>{this.log(kind,message,ids,s.jd+advanced/DAY);this.topologyRevision++;});
+          dockingStep(s.bodies,(kind,message,ids)=>this.log(kind,message,ids,s.jd+advanced/DAY));
           s.bodies=extremeEvents(s.bodies,p,previous,dt,s.jd+advanced/DAY,emit);
           s.bodies=resolveCollisions(s.bodies,p,previous,dt,emit,s.eventSerial);
           s.bodies=disruptTides(s.bodies,p,emit,s.eventSerial);
@@ -143,7 +156,7 @@ export class Engine {
     this.steps+=steps;this.accepted+=steps;this.rejected+=rejected;
     const d=diagnostics(s.bodies,p),a=accelerations(s.bodies,p);
     const selected=s.bodies.find(b=>b.id===this.selectedId);
-    s.bodies.forEach((b,i)=>{if(b.rocket||b.spacecraft||b.id===this.selectedId)b.acceleration=b.locked?[0,0,0]:b.rocket?add(a[i],b.rocket.nonGravitationalAcceleration??[0,0,0]):a[i];});
+    s.bodies.forEach((b,i)=>{if(b.rocket||b.spacecraft||b.id===this.selectedId)b.acceleration=b.locked?[0,0,0]:(b.rocket||b.spacecraft)?add(a[i],(b.rocket??b.spacecraft).nonGravitationalAcceleration??[0,0,0]):a[i];});
     if(selected && (selected.rocket||selected.spacecraft) && Math.abs(s.jd-this.lastTelemetryJD)*DAY>=1) {
       const parent=s.bodies.find(b=>b.id===selected.parentId),sample=vehicleTelemetry(selected,parent,s.jd,p);
       if(sample) {
@@ -152,7 +165,7 @@ export class Engine {
       }
     }
     const delta=d.angular.map((x,i)=>x-this.baseline.angular[i]);
-    const activePropulsion=s.bodies.some(b=>b.rocket&&b.rocket.engineOn);
+    const activePropulsion=s.bodies.some(b=>b.rocket?.engineOn||((b.rocket??b.spacecraft)?.rcs?.fuel>0&&norm((b.rocket??b.spacecraft).rcs.translation??[0,0,0])>0)||b.spacecraft?.atmosphericFlight?.deceleration>0||(b.rocket??b.spacecraft)?.docking?.connected);
     const warnings=[];
     if(selected){const parent=s.bodies.find(b=>b.id===selected.parentId),t=parent?vehicleTelemetry(selected,parent,s.jd,p):null;if(t?.elements?.period&&lastDt>t.elements.period/40)warnings.push('TIMESTEP TOO LARGE: selected orbit has fewer than 40 steps per period.');if(t?.elements?.e>=1)warnings.push('ESCAPE TRAJECTORY: selected state is unbound relative to '+parent.name+'.');const stage=selected.rocket?.stages[selected.rocket.stage];if(stage&&stage.fuel/stage.capacity<.05)warnings.push('FUEL LOW: active stage retains less than 5% of its propellant capacity.');}
     if(s.eventSerial-(this.previousEventSerial??s.eventSerial)>10)warnings.push('HIGH EVENT RATE: more than 10 collision/mission events in one batch.');this.previousEventSerial=s.eventSerial;

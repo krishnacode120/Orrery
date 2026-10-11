@@ -33,6 +33,10 @@ npm.cmd run dev
 
 Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optional for local physics, editing, presets, IndexedDB autosave, and JSON export; it is required for Horizons and shared scenarios.
 
+## Scientific workbench
+
+The tool rail groups features under **Explore, Simulate, Missions, Analyze and Lab**. Ctrl+K discovers advanced workspaces. The lazy-loaded scientific workbench provides the Earth–Mars reference mission, measured certification/debrief, replay, bounded sensitivity runs, departure/arrival Lambert grids, reference-frame/time readouts, numerical comparisons and stress tests. Reports contain actual integrated results. The [scientific guide](docs/scientific-missions.md) documents controls and fidelity limits.
+
 ## Workspace
 
 - **Reality** initializes at the current UTC date. Planets use JPL Table 1 with century rates. Major moons use documented circular mean-orbit approximations with illustrative phases.
@@ -61,7 +65,7 @@ The [Universe Explorer guide](docs/universe-explorer.md) documents controls, coo
 
 ## Rocket View and mission control
 
-Use **Mission planner → Add launch vehicle at departure** to keep the entire solar system running around the launch, or load **Launch vehicle** from Scenarios for an isolated Earth test. Choose **Ignition / launch** to release the rotating-Earth pad constraint and start the engine. The worker integrates gravity, changing mass, propellant flow, thrust, exponential-atmosphere drag, feedback guidance, stage separation, insertion, and payload deployment.
+Use **Mission planner → Add launch vehicle at departure** to keep the entire solar system running around the launch, or load **Launch vehicle** from Scenarios for an isolated Earth test. Choose **Ignition / launch** to release the rotating-Earth pad constraint and start the engine. The worker integrates gravity, changing mass, pressure-dependent engine performance, layered-atmosphere drag, feedback guidance, stage separation, insertion, and payload deployment.
 
 Throttle, target altitude, manual pitch/heading/roll, Isp, thrust, stage masses, drag area and coefficient are editable. Guidance and auto-staging are independently switchable. The default launch is covered by an automated end-to-end test that reaches a bound orbit before fuel exhaustion.
 
@@ -79,7 +83,7 @@ Maneuver planning supports prograde, retrograde, radial, normal and arbitrary in
 
 The planner computes zero-revolution Lambert transfers against a moving, osculating destination and shows circular Hohmann launch-window estimates. Planet departures report heliocentric transfer estimates; parked vehicles use a hyperbolic ejection calculation and reject paths crossing the departure surface. Explicit cruise demonstrations skip launch/escape. All resulting vehicles propagate under the existing N-body solver.
 
-SOI entry/exit updates analysis frames and logs events without teleporting or switching off other gravity sources. Navball directions, staged delta-v, fuel flow, target range, apsis events and circularization burns are available in Flight operations. Landing is a contact/impact model; powered descent is manual. **A launch-to-Mars-capture mission with course corrections has not been validated end-to-end.** Lambert and patched-conic estimates do not guarantee an encounter or capture under N-body perturbations.
+SOI entry/exit updates analysis frames and logs events without teleporting or switching off other gravity sources. Navball directions, staged delta-v, fuel flow, target range, apsis events and circularization burns are available in Flight operations. Moon/Mars examples add thrust-driven descent guidance and bounded touchdown checks. **Lab → Reference mission** now runs a reproducible Earth launch through fuel-aware Mars capture and two verification orbits. The [scientific mission guide](docs/scientific-missions.md) explains the measured criteria, deterministic replay and approximation boundaries. Lambert estimates alone still do not guarantee an encounter.
 
 God Mode, the collision laboratory, live measurement tool, influence guides, minimap and optional tracking inset work in the same scene. The solar preset includes eight planets and 18 major moons; moon phases and mean circular paths are approximate unless Horizons replaces them.
 
@@ -109,7 +113,7 @@ Camera-relative positions are formed in Float64 before Three.js receives local c
 
 Bundled CC BY 4.0 planet maps, day/night shading, clouds, atmospheric rims, solar emission, rings and procedural custom materials improve surface readability. A deterministic generated star distribution supplies background depth; it is not an astrometric star catalog.
 
-Particles/fragments use one instanced mesh; background stars use one point draw. Low/Medium/High/Ultra/Auto quality adjusts pixel ratio and bloom; low quality bounds trails and sphere detail. FPS, frame interval, physics batch time, worker throughput, counts, draw calls and trail points are exposed. GPU compute gravity is not enabled: the supported physics path is CPU direct/tree, with GPU-assisted instanced rendering.
+Particles/fragments use one instanced mesh; background stars use one point draw. Low/Medium/High/Ultra/Auto quality adjusts pixel ratio and bloom; low quality bounds trails and sphere detail. FPS, frame interval, physics batch time, worker throughput, counts, draw calls and trail points are exposed. An optional WebGPU compute path advances non-sourcing tracers with Float32 Verlet while massive sources remain Float64 CPU. Unsupported configurations and device failures fall back to CPU. See [GPU measurements and precision limits](docs/gpu-compute.md).
 
 Motion interpolates completed worker publications for rendering only; telemetry and editing stay authoritative. Vehicle attitudes use quaternion interpolation, physical stages remain independent bodies, and progressive trail histories use capped circular buffers. Pause settles on the completed worker boundary; it does not roll back a batch already in flight.
 
@@ -187,6 +191,8 @@ npm.cmd test -- --reporter=verbose --silent=false
 .\.venv\Scripts\python.exe -m pytest backend/tests -q
 npm.cmd run build
 ```
+
+Extended checks: `npm.cmd run test:reference` (launch, Mars capture and deterministic replay), `npm.cmd run benchmark` (CPU stress cases), and `node scripts/verify-horizons.mjs` (network-dependent multi-epoch ephemeris comparison).
 
 See [VERIFICATION.md](VERIFICATION.md) for measured outcomes and the manual checklist, and the [bug-review report](docs/bug-review.md) for the latest fixes and regression coverage. The [upgrade prompt extension](docs/what-if-upgrade-prompt.md) retains the What-If/motion requirements separately from the implementation and verification claims.
 

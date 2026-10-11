@@ -1,8 +1,10 @@
 # Scenario schema version 2
 
-Top-level fields: version, name, mode, jd, bodies, settings, view, tags, description, provenance, maneuvers, stations, telemetry, mission, events, eventSerial, and optional ephemeris, branch and experimentEvents.
+Top-level fields: version, schemaVersion, createdByVersion, name, mode, jd, bodies, settings, view, tags, description, provenance, maneuvers, stations, telemetry, mission, events, eventSerial, and optional ephemeris, branch and experimentEvents.
 
 Body data preserves all original Phase 1 fields. New fields include visible, metadata, collisionMode, disrupted, blackHole, wormhole, rocket, spacecraft, acceleration and portalCooldownJD. State is always SI; spin period is seconds. Display-unit preferences do not change stored numbers.
+
+settings includes computeMode (cpu, gpu, auto; cpu by default). Missing schemaVersion/createdByVersion migrate to version 2 with explicit creator provenance. Optional engine endpoints and attitude/RCS configuration are validated on import. Export metadata is local and is not automatically uploaded.
 
 settings contains G multiplier, softening, step/time scale, integrator, acceleration adaptivity, eta, minimum step, relative and absolute tolerances, solver, theta, collision mode/restitution, fragment count/spread/minimum mass/distribution, Roche multiplier, GR flag and c.
 

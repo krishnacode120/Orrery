@@ -32,8 +32,8 @@ it('all 16 experimental presets produce valid serialized physics states',()=>{
 });
 it('scheduled gravity and velocity changes execute at the boundary once and update drift baselines',()=>{
  const s=safe(),vehicle=s.bodies.find(b=>b.spacecraft);s.settings.gMultiplier=0;s.experimentEvents=[{id:'g',jd:s.jd+2/DAY,executed:false,operation:{kind:'gravity',mode:'set',value:0}},{id:'burn',jd:s.jd+4/DAY,executed:false,operation:{kind:'velocity',bodyId:vehicle.id,mode:'add',vector:[10,0,0]}}];
- const engine=new Engine();engine.load(s);const v=[...vehicle.velocity],p=[...vehicle.position];engine.advance(6);const current=engine.s.bodies.find(b=>b.id===vehicle.id);
- expect(current.velocity[0]).toBeCloseTo(v[0]+10,8);expect(current.position[0]).toBeCloseTo(p[0]+v[0]*6+20,2);expect(engine.s.experimentEvents.every(e=>e.executed)).toBe(true);expect(engine.s.events.filter(e=>e.kind==='experiment')).toHaveLength(2);expect(engine.advance(0).energyDrift).toBeCloseTo(0,8);engine.advance(2);expect(engine.s.events.filter(e=>e.kind==='experiment')).toHaveLength(2);
+ const engine=new Engine();engine.load(s);const v=[...vehicle.velocity],p=[...vehicle.position];engine.advance(6,{deterministic:true});const current=engine.s.bodies.find(b=>b.id===vehicle.id);
+ expect(current.velocity[0]).toBeCloseTo(v[0]+10,8);expect(current.position[0]).toBeCloseTo(p[0]+v[0]*6+20,2);expect(engine.s.experimentEvents.every(e=>e.executed)).toBe(true);expect(engine.s.events.filter(e=>e.kind==='experiment')).toHaveLength(2);expect(engine.advance(0).energyDrift).toBeCloseTo(0,8);engine.advance(2,{deterministic:true});expect(engine.s.events.filter(e=>e.kind==='experiment')).toHaveLength(2);
 });
 it('scheduled mass and G edits account for intentional energy changes, not numerical drift',()=>{
  const s=safe();s.bodies.find(b=>b.spacecraft).massless=false;s.experimentEvents=[{id:'change',jd:s.jd,executed:false,operation:{kind:'gravity',mode:'set',value:2}}];const e=new Engine();e.load(s);const d=e.advance(.01);expect(Math.abs(d.energyDrift)).toBeLessThan(1e-7);expect(d.eventEnergyDelta).not.toBe(0);expect(e.s.settings.gMultiplier).toBe(2);

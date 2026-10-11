@@ -1,13 +1,13 @@
 import { G, DAY, EARTH_AXIS, J2000, add, sub, scale, unit, norm, dot, cross } from './units.js';
 import { orbitalElements } from './orbital.js';
 import {signalLink} from './observations.js';
+import {flightAtmosphere,enginePerformance} from './atmosphere.js';
+import {rotateAxis,toBodyFixed,fromBodyFixed,planetRelative} from './frames.js';
+import {attitudeStep,gimballedDirection} from './dynamics.js';
+export {rotateAxis} from './frames.js';
 export const G0=9.80665;
 export const EARTH_ROTATION=7.2921150e-5;
 export const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-export function rotateAxis(vector,axis,angle) {
-  const c=Math.cos(angle),s=Math.sin(angle),k=unit(axis),kv=dot(k,vector);
-  return add(add(scale(vector,c),scale(cross(k,vector),s)),scale(k,kv*(1-c)));
-}
 export function earthFixed(position,jd) {
   if(!norm(position))return {latitude:null,longitude:null};
   const r=rotateAxis(position,EARTH_AXIS,-(jd-J2000)*DAY*EARTH_ROTATION);
@@ -61,16 +61,16 @@ export function vehicleTelemetry(body,primary,jd,settings={}) {
   const axis=unit(primary.spin.axis),rotation=2*Math.PI/primary.spin.period;
   const groundVelocity=sub(v,cross(scale(axis,rotation),r)),vertical=dot(v,up);
   const elements=orbitalElements(r,v,G*(settings.gMultiplier??1)*primary.mass);
-  const density=altitude<(primary.atmosphere?.height??0)*1.8?(primary.atmosphere?.density??0)*Math.exp(-Math.max(0,altitude)/8500):0;
-  const q=0.5*density*norm(groundVelocity)**2;
+  const air=flightAtmosphere(primary,altitude,norm(groundVelocity),body.rocket?.noseRadius??body.radius);
+  const q=air.q;
   const orientation=body.rocket?.orientation??body.spacecraft?.orientation??unit(v);
   const pitch=Math.asin(clamp(dot(orientation,up),-1,1))*180/Math.PI;
   const east=unit(cross(axis,up)),north=unit(cross(up,east));
   const heading=(Math.atan2(dot(orientation,east),dot(orientation,north))*180/Math.PI+360)%360;
   return {jd,bodyId:body.id,met:body.rocket?.met??Math.max(0,(jd-(body.spacecraft?.epochJD??jd))*DAY),
     altitude,speed:norm(v),verticalSpeed:vertical,horizontalSpeed:Math.sqrt(Math.max(0,dot(v,v)-vertical*vertical)),
-    groundSpeed:norm(groundVelocity),q,acceleration:norm(body.acceleration??[0,0,0]),
-    propellant:body.rocket?.stages.reduce((s,x)=>s+x.fuel,0)??0,thrust:body.rocket?.actualThrust??0,
+    groundSpeed:norm(groundVelocity),q,mach:air.mach,airDensity:air.density,airPressure:air.pressure,airTemperature:air.temperature,speedOfSound:air.speedOfSound,heatingProxy:air.heatingProxy,atmosphereModel:air.model,frame:'Planet-centered inertial · axes parallel to J2000 ecliptic',acceleration:norm(body.acceleration??[0,0,0]),
+    propellant:body.rocket?.stages.slice(body.rocket.stage).reduce((s,x)=>s+x.fuel,0)??body.spacecraft?.rcs?.fuel??0,thrust:body.rocket?.actualThrust??0,
     dryMass:body.rocket?body.rocket.payloadMass+body.rocket.stages.slice(body.rocket.stage).reduce((s,x)=>s+x.dryMass,0):body.mass,
     totalMass:body.mass,pitch,heading,roll:body.rocket?.roll??0,
     orbitalVelocity:Math.sqrt(G*(settings.gMultiplier??1)*primary.mass/Math.max(norm(r),1)),
@@ -79,7 +79,7 @@ export function vehicleTelemetry(body,primary,jd,settings={}) {
     energy:elements?.specificEnergy??(dot(v,v)/2-G*(settings.gMultiplier??1)*primary.mass/Math.max(norm(r),1)),elements,...bodyFixed(r,primary,jd)};
 }
 export function rocketMass(rocket) {
-  return rocket.payloadMass+rocket.stages.slice(rocket.stage).reduce((s,x)=>s+x.dryMass+x.fuel,0);
+  return rocket.payloadMass+(rocket.rcs?.fuel??0)+rocket.stages.slice(rocket.stage).reduce((s,x)=>s+x.dryMass+x.fuel,0);
 }
 export function defaultRocket() {
   return {stages:[{name:'Booster',dryMass:25600,fuel:395000,capacity:395000,thrust:7600000,isp:300,engineCount:1},
@@ -99,6 +99,7 @@ export function propulsion(body,primary,dt,jd,settings,notify,spawn) {
   const v=sub(body.velocity,primary.velocity),east=unit(cross(axis,up));
   let tangent=unit(sub(v,scale(up,dot(v,up))));
   if(t.horizontalSpeed<50)tangent=east;
+  if(r.launchPlaneNormal){const planned=unit(cross(r.launchPlaneNormal,up));tangent=dot(planned,v)>=0?planned:scale(planned,-1);}
   if(t.altitude < -5) {
     r.phase='crashed';r.engineOn=false;r.actualThrust=0;body.locked=true;
     notify('mission',body.name+' impacted the surface',[body.id]);return;
@@ -113,13 +114,18 @@ export function propulsion(body,primary,dt,jd,settings,notify,spawn) {
         position:[...body.position],velocity:[...body.velocity],collisionMode:'none',disrupted:true,
         metadata:{...body.metadata,separatedStage:{parentId:body.id,jd,name:stage.name,orientation:[...r.orientation]}}};
       spawn(stageBody);r.separations.push({stage:r.stage,jd});r.stage++;
-      r.engineOn=true;r.phase='second-stage ignition';body.mass=rocketMass(r);
+      r.engineOn=r.stages[r.stage].autoIgnite!==false;r.phase=r.engineOn?'second-stage ignition':'stage separation';body.mass=rocketMass(r);
       const total=body.mass+discarded,separation=Math.max(0,r.separationSpeed??1);stageBody.velocity=sub(stageBody.velocity,scale(up,separation*body.mass/total));body.velocity=add(body.velocity,scale(up,separation*discarded/total));
       notify('staging',body.name+': '+stage.name+' separated; next engine ignited',[body.id,stageBody.id]);
     }
   }
   const active=r.stages[r.stage],mu=G*(settings.gMultiplier??1)*primary.mass,distance=primary.radius+t.altitude;
-  if(r.attitudeMode&&r.attitudeMode!=='launch'){if(r.attitudeMode!=='hold')r.orientation=unit(burnVector(body,primary,{direction:r.attitudeMode,deltaV:1,vector:[1,0,0]}));r.guidanceThrottle=1;}
+  if(r.landingAutopilot){
+    const relative=sub(v,cross(scale(axis,rotation),sub(body.position,primary.position))),horizontal=sub(relative,scale(up,dot(relative,up))),g=mu/distance**2-t.horizontalSpeed**2/distance,available=active.thrust*(active.engineCount??1)/Math.max(body.mass,1);
+    const targetVertical=r.landingAutopilot==='hover'?0:-Math.min(60,Math.max(.5,(t.altitude-body.radius)/10),Math.max(.5,Math.sqrt(Math.max(0,2*(available-g)*Math.max(0,t.altitude-body.radius)))*.25));
+    const demand=add(scale(up,g+(targetVertical-dot(v,up))/3),scale(horizontal,-1/4));
+    r.orientation=unit(demand);r.guidanceThrottle=clamp(norm(demand)/Math.max(.01,available),0,1);r.autopilot=true;r.phase='powered descent';
+  }else if(r.attitudeMode&&r.attitudeMode!=='launch'){if(r.attitudeMode!=='hold')r.orientation=unit(burnVector(body,primary,{direction:r.attitudeMode,deltaV:1,vector:[1,0,0]}));r.guidanceThrottle=1;}
   else if(r.autopilot) {
     const target=r.targetAltitude;
     if(t.periapsis>target*0.82 && t.elements?.e<0.08 && t.altitude>100000) {
@@ -134,25 +140,35 @@ export function propulsion(body,primary,dt,jd,settings,notify,spawn) {
       const desiredTangential=(Math.sqrt(mu/(primary.radius+target))-t.horizontalSpeed)/25+t.horizontalSpeed*t.verticalSpeed/distance;
       const tangentialFraction=clamp(desiredTangential/Math.max(thrustAcceleration,.1),-Math.sqrt(1-radialFraction**2),Math.sqrt(1-radialFraction**2));
       r.guidanceThrottle=Math.min(1,Math.hypot(radialFraction,tangentialFraction));
-      r.orientation=unit(add(scale(up,radialFraction),scale(tangent,tangentialFraction)));
+      let demand=add(scale(up,radialFraction),scale(tangent,tangentialFraction));
+      if(r.launchPlaneNormal){const correction=(-dot(v,r.launchPlaneNormal)/20-dot(sub(body.position,primary.position),r.launchPlaneNormal)/800)/Math.max(thrustAcceleration,.1);demand=add(demand,scale(r.launchPlaneNormal,clamp(correction,-.3,.3)));r.guidanceThrottle=Math.min(1,norm(demand));}
+      r.orientation=unit(demand);
       r.phase=t.altitude<30000?'pitch program':r.stage===0?'gravity turn':'upper-stage ascent';
     }
   } else {
     const pitch=r.pitch*Math.PI/180,heading=r.heading*Math.PI/180,north=unit(cross(up,east));
     r.orientation=unit(add(scale(up,Math.sin(pitch)),scale(add(scale(east,Math.sin(heading)),scale(north,Math.cos(heading))),Math.cos(pitch))));
   }
-  if(t.q>r.maxQ)r.maxQ=t.q;
+  if(t.q>r.maxQ){r.maxQ=t.q;r.maxQState={jd,met:r.met,q:t.q,mach:t.mach,altitude:t.altitude,speed:t.groundSpeed};}
   if(!r.maxQPassed&&r.maxQ>1000&&t.q<r.maxQ*.8&&r.met>30){r.maxQPassed=true;notify('mission',body.name+' passed max-Q: '+Math.round(r.maxQ)+' Pa',[body.id]);}
+  if(r.limits){const violations=[];if(t.q>(r.limits.maxQ??Infinity))violations.push('dynamic pressure');if(t.acceleration>(r.limits.maxAcceleration??Infinity))violations.push('acceleration');if(t.heatingProxy>(r.limits.maxHeating??Infinity))violations.push('heating proxy');r.structuralWarnings=violations.map(x=>'STRUCTURAL LIMIT EXCEEDED: '+x);}
+  r.orientation=attitudeStep(body,r.orientation,dt);
+  const thrustDirection=gimballedDirection({...r,gimbalRange:r.gimbalRange??active.gimbalRange??0},r.orientation);
+  if(r.engineOn&&!active.engineRunning){const used=active.ignitionsUsed??0;if(used>=(active.maxIgnitions??Infinity)||(used>0&&active.restartable===false)){r.engineOn=false;notify('mission',body.name+': ignition rejected; engine restart limit reached',[body.id]);}else active.ignitionsUsed=used+1;}
+  active.engineRunning=r.engineOn;
   const throttle=r.engineOn?clamp(r.throttle,0,1)*(r.autopilot?(r.guidanceThrottle??1):1):0;
-  const thrust=active.fuel>0?active.thrust*(active.engineCount??1)*throttle:0;
-  const used=Math.min(active.fuel,thrust/(active.isp*G0)*dt),before=rocketMass(r);
+  const performance=enginePerformance(active,t.airPressure,throttle);
+  const thrust=active.fuel>0?performance.thrust:0;
+  const used=Math.min(active.fuel,performance.massFlow*dt),before=rocketMass(r);
   active.fuel-=used;body.mass=rocketMass(r);
-  const impulseSpeed=used>0?active.isp*G0*Math.log(before/body.mass):0;
-  body.velocity=add(body.velocity,scale(unit(r.orientation),impulseSpeed));
-  r.actualThrust=dt?used/dt*active.isp*G0:0;
+  r.consumedPropellant=(r.consumedPropellant??0)+used;
+  const impulseSpeed=used>0?performance.isp*G0*Math.log(before/body.mass):0;
+  r.propulsiveDeltaV=(r.propulsiveDeltaV??0)+impulseSpeed;
+  body.velocity=add(body.velocity,scale(thrustDirection,impulseSpeed));
+  r.actualThrust=dt?used/dt*performance.isp*G0:0;r.actualIsp=performance.isp;r.massFlow=dt?used/dt:0;
   const relative=sub(sub(body.velocity,primary.velocity),cross(scale(axis,rotation),sub(body.position,primary.position)));
   const drag=t.q*r.cd*r.area/Math.max(body.mass,1);
-  r.nonGravitationalAcceleration=sub(scale(unit(r.orientation),r.actualThrust/Math.max(body.mass,1)),scale(unit(relative),drag));
+  r.nonGravitationalAcceleration=sub(scale(thrustDirection,r.actualThrust/Math.max(body.mass,1)),scale(unit(relative),drag));
   body.velocity=sub(body.velocity,scale(unit(relative),Math.min(norm(relative),drag*dt)));
   if(active.fuel<=1e-7 && r.stage===r.stages.length-1 && r.phase!=='orbital insertion') {
     r.engineOn=false;r.phase='fuel exhausted';

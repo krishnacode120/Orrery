@@ -10,7 +10,7 @@ Asteroids and resolved debris share one instanced mesh. Star points are generate
 
 Black-hole rendering combines an opaque horizon, procedural distorted star pattern, emission ring and radial disk temperature approximation. Doppler brightness is visual only. This is not full-scene GR lensing or Kerr geodesic integration. Wormholes render the other mouth's scene into a 256² texture every eight frames with all portal surfaces hidden to prevent recursion, then distort the rim.
 
-Auto quality samples frame intervals once per second and adapts no more frequently than five seconds. It reduces DPR and disables bloom at low quality; lower trail/sphere limits reduce CPU and GPU work. Physics is CPU-based. Benchmark throughput is not equivalent to render FPS.
+Auto quality samples frame intervals once per second and adapts no more frequently than five seconds. It reduces DPR and disables bloom at low quality; lower trail/sphere limits reduce CPU and GPU work. Precision physics is CPU-based; optional WebGPU tracers are documented in [GPU compute](gpu-compute.md). Benchmark throughput is not equivalent to render FPS.
 
 The tracking inset uses a scissored second camera in the same WebGL context, after the main/postprocessed pass. A single frame callback owns the composer/main pass and inset pass. Canvas memoization prevents UI state changes from reconfiguring its pixel ratio; DPR updates occur only on a quality change. Renderer viewport, scissor and temporary visibility/uniform changes are restored after each inset draw. Hidden UI suppresses the inset. This avoids competing Canvas contexts.
 

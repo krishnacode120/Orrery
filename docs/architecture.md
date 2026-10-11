@@ -1,5 +1,14 @@
 # Simulation architecture
 
+## Scientific execution (v1.1)
+
+The cancellable science worker owns reference mission, replay, uncertainty, Lambert-grid and benchmark jobs using the same pure Engine as live simulation. The reference runner records accepted timesteps and step-indexed commands. Deterministic replay removes wall-clock budgets; the live vehicle worker accumulates requests into logical quanta so rendering does not choose integration steps.
+
+Optional WebGPU tracers use old/new Float64 CPU source positions and complete GPU readback before publication. Failed compute continues the same tracer step on CPU. The revision-tagged SAB/transferable ownership protocol remains unchanged.
+
+Central frame, time, atmosphere and dynamics modules are independently tested. Certification evaluates actual state and retained events. Scientific reports record model settings and optional local build/runtime metadata. See [scientific missions](scientific-missions.md) and [GPU compute](gpu-compute.md) for limitations.
+
+
 React controls edit a serializable versioned scenario in Zustand. Immer patch history records physical edits and scenario operations. Selection, continuous camera movement, quality measurements and viewport preferences do not create a patch for every animation frame. If worker topology no longer matches the patch's expected IDs/order, undo restores the corresponding complete snapshot rather than applying array indices to different bodies.
 
 The main thread owns editing intent; the physics worker owns integrated state between revisions. Comlink serializes exactly one simulation RPC at a time. initialize validates/clones the scenario and allocates fixed-capacity buffers. advance returns count, metadata/topology revision, event serial, dynamic vehicle state and diagnostics.

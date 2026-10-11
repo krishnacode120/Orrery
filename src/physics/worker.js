@@ -7,8 +7,8 @@ const core=createWorkerCore();
 expose({
   initialize:core.initialize,
   predict,compareExperiments,sensitivity,findEvents,
-  advance(seconds,selectedId) {
-    const result=core.advance(seconds,selectedId);
+  async advance(seconds,selectedId) {
+    const result=await core.advanceAsync(seconds,selectedId);
     return result.state?transfer(result,[result.state,result.render]):result;
   },
 });

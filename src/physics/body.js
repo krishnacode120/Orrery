@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS = { gMultiplier: 1, softening: 1000, stepSeconds: 
   integrator: 'verlet', adaptive: false, eta: 0.2, minStep: 1e-6, rtol: 1e-9,
   positionTolerance: 1, velocityTolerance: 1e-4, theta: 0.5,
   collisionMode: 'merge', restitution: 0.8, roche: true, gr: false, c: C,
-  solver: 'auto', fragmentCount: 8, fragmentSpread: 1, fragmentMinMass: 1,
+  solver: 'auto', computeMode:'cpu', fragmentCount: 8, fragmentSpread: 1, fragmentMinMass: 1,
   fragmentDistribution: 'equal', tidalMultiplier: 1 };
 const planets = [
   ['mercury','Mercury',3.3011e23,2.4397e6,'#b6a596',1407.6,0.034],

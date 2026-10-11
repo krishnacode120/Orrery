@@ -29,6 +29,13 @@ def initialize():
                 updated_at REAL NOT NULL
             );
             CREATE INDEX IF NOT EXISTS scenarios_owner ON scenarios(edit_hash);
+            CREATE TABLE IF NOT EXISTS mission_definitions (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                edit_hash TEXT NOT NULL,
+                updated_at REAL NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS horizons_cache (
                 key TEXT PRIMARY KEY,
                 payload TEXT NOT NULL,

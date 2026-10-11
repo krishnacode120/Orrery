@@ -1,0 +1,2 @@
+export const BUILD_INFO=typeof __ORRERY_BUILD__!=='undefined'?__ORRERY_BUILD__:{version:'1.1.0',commit:null,dirty:null};
+export function reproducibilityMetadata(scenario){return {...BUILD_INFO,scenarioVersion:scenario.schemaVersion??scenario.version,physicsMode:scenario.mode,integrator:scenario.settings.integrator,solver:scenario.settings.solver,timestep:scenario.settings.stepSeconds,rtol:scenario.settings.rtol,computeMode:scenario.settings.computeMode??'cpu',browser:typeof navigator!=='undefined'?navigator.userAgent:null};}
