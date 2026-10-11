@@ -1,5 +1,9 @@
 # Orrery verification — 2026-10-11
 
+## Production preparation milestone
+
+181 frontend tests, 64 backend tests and the production build pass. Thirty HTTP/SEO checks pass through the real local Caddy proxy. Shared memory and forced transferable transport were verified in the browser. See [production evidence and remaining launch gates](docs/PRODUCTION_VERIFICATION.md). Public deployment is not yet configured.
+
 ## Scientific integration milestone
 
 | Check | Measured result |

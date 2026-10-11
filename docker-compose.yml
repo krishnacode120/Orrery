@@ -1,0 +1,85 @@
+name: orrery
+services:
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        PUBLIC_APP_URL: ${PUBLIC_APP_URL:?Set PUBLIC_APP_URL to your HTTPS production origin}
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    restart: unless-stopped
+    environment:
+      ORRERY_DOMAIN: ${ORRERY_DOMAIN:?Set ORRERY_DOMAIN to the hostname only}
+      ACME_EMAIL: ${ACME_EMAIL:?Set the TLS certificate contact email}
+      API_UPSTREAM: api:8000
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    networks:
+      orrery:
+        ipv4_address: 172.30.70.10
+    depends_on:
+      api:
+        condition: service_healthy
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      ORRERY_ENV: production
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL}
+      ORRERY_ORIGINS: ${PUBLIC_APP_URL}
+      ORRERY_TRUSTED_HOSTS: ${ORRERY_DOMAIN},api,127.0.0.1,localhost
+      ORRERY_DB: /data/orrery.sqlite3
+    volumes: [database:/data]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [orrery]
+    healthcheck:
+      test: ["CMD","python","-c","import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready',timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+  backup:
+    build:
+      context: .
+      target: api
+    command: ["python","-m","deploy.backup","--loop"]
+    restart: unless-stopped
+    environment:
+      ORRERY_DB: /data/orrery.sqlite3
+      BACKUP_DIRECTORY: /backups
+      BACKUP_INTERVAL_HOURS: "24"
+      BACKUP_RETAIN_COUNT: "14"
+    volumes: [database:/data, backups:/backups]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    network_mode: none
+    depends_on:
+      api:
+        condition: service_healthy
+volumes:
+  database:
+  backups:
+  caddy_data:
+  caddy_config:
+networks:
+  orrery:
+    ipam:
+      config:
+        - subnet: 172.30.70.0/24

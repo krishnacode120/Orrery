@@ -1,0 +1,14 @@
+.git
+node_modules
+dist
+.venv
+.env
+.env.*
+!.env.example
+**/*.sqlite3*
+**/__pycache__
+.pytest_cache
+artifacts
+docs/screenshots
+backend/tests
+*.zip

@@ -32,7 +32,7 @@ export async function localExperiment(value) {
 }
 
 export async function api(path, options = {}) {
-  const response = await fetch(`/api${path}`, { ...options,
+  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL??'/api'}${path}`, { ...options,
     headers: { 'Content-Type':'application/json', ...options.headers }, signal: options.signal??AbortSignal.timeout(30000) });
   if(response.status===204)return null;
   const text=await response.text();let result;

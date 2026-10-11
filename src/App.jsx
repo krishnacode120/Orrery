@@ -14,6 +14,7 @@ import {useReplay} from './useReplay.js';
 import {useWhatIf} from './useWhatIf.js';
 import {useWhatIfStore} from './store/useWhatIfStore.js';
 import {localExperiment} from './persistence.js';
+import {publicLaunch,applyPublicLaunch} from './publicLaunch.js';
 
 class SceneBoundary extends Component {
   state = { error: null };
@@ -27,15 +28,19 @@ export default function App() {
   usePrediction();useReplay();useWhatIf();
   const panel=useSimStore(state=>!!state.scenario.view.panel),ui=useUIStore(),catalogActive=useExplorerStore(s=>s.active);
   const [ready,setReady] = useState(false), [storageError,setStorageError] = useState('');
+  const [online,setOnline]=useState(()=>navigator.onLine);
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
+  const [guided]=useState(()=>location.pathname.startsWith('/s/')?null:publicLaunch(location.search));
   useEffect(() => {
     let cancelled = false;
     const bootRevision = useSimStore.getState().revision;
     (async () => {
       try {
         const match = location.pathname.match(/^\/s\/([A-Za-z0-9_-]+)$/);
-        const saved = match ? await api(`/scenarios/${match[1]}`) : await localScenario();
+        const saved = match ? await api(`/scenarios/${match[1]}`) : guided?null:await localScenario();
         if (!cancelled && saved && useSimStore.getState().revision===bootRevision) useSimStore.getState().replace(saved);
         if(!cancelled&&!match&&useSimStore.getState().scenario.view.workspaceVersion!==4){const state=useSimStore.getState();state.configureView({workspaceVersion:4,scale:'system',selected:state.scenario.bodies.some(b=>b.id==='earth')?'earth':state.scenario.view.selected,panel:null,cameraMode:'orbit',camera:null});}
+      if(!cancelled&&guided&&useSimStore.getState().revision===bootRevision)await applyPublicLaunch(guided);
       if(!cancelled&&window.matchMedia('(max-width:800px)').matches)useSimStore.getState().configureView({panel:null});
       if(!cancelled&&window.matchMedia('(max-width:800px)').matches)useUIStore.getState().workspace({left:false,right:false});
       } catch(error) { if(!cancelled)setStorageError(error.message); }
@@ -49,7 +54,7 @@ export default function App() {
       frame=>useSimStore.getState().frame(frame), error=>useSimStore.getState().fail(error));
   },[ready]);
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || guided) return;
     let pending=false;
     const timer=setInterval(async()=>{
       if(pending)return;
@@ -62,6 +67,8 @@ export default function App() {
   },[ready]);
   return <><GlobalStyle /><Shell data-hidden={ui.hidden} data-top={ui.top} data-left={ui.left} data-right={ui.right} data-bottom={ui.bottom} data-hud={ui.hud} data-rail={ui.rail}>
     <div className="viewport-stage" data-panel={panel} onDoubleClick={()=>{if(ui.hidden)ui.toggleInterface();}}><SceneBoundary key={catalogActive?'catalog':'simulation'}><Suspense fallback={<div className="canvas-fallback">Preparing renderer…</div>}>{catalogActive?<UniverseScene/>:<Scene/>}</Suspense></SceneBoundary></div>{!catalogActive&&<Suspense fallback={null}><PictureInPicture/></Suspense>}<HUD />
+    {!online&&<Notice role="status">Offline · Loaded physics can continue locally. Horizons and server sharing need a network connection. Export important work before closing.</Notice>}
+    {online&&guided&&ready&&!storageError&&<Notice role="status" style={{bottom:80,padding:'8px 12px',maxHeight:80,overflow:'auto'}}>Guided example · Your previous autosave is preserved. Use Export or Save scenario to keep this experiment. <a href="/app">Return to saved workspace</a></Notice>}
     {(!ready || storageError) && <Notice role="status">{!ready?'Loading scenario…':storageError}
       {storageError && <button style={{marginLeft:10}} onClick={()=>setStorageError('')}>Dismiss</button>}</Notice>}
   </Shell></>;

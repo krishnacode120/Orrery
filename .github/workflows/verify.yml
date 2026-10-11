@@ -16,6 +16,26 @@ jobs:
       - run: npm ci
       - run: npm test -- --reporter=verbose --silent=false
       - run: npm run build
+      - run: python scripts/scan-secrets.py
+  containers:
+    runs-on: ubuntu-latest
+    env:
+      PUBLIC_APP_URL: https://orrery.example.org
+      ORRERY_DOMAIN: orrery.example.org
+      ACME_EMAIL: ci@example.org
+      API_BASE_URL: /api
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose config --quiet
+      - run: docker compose build web api
+      - run: docker compose run --rm --no-deps web caddy validate --config /etc/caddy/Caddyfile
+      - name: Verify persistent database and online backup
+        run: |
+          docker compose run --rm --no-deps api python -m deploy.check_storage write
+          docker compose run --rm --no-deps api python -m deploy.check_storage read
+          docker compose run --rm --no-deps backup python -m deploy.backup
+      - if: always()
+        run: docker compose down --volumes
   backend:
     runs-on: ubuntu-latest
     steps:

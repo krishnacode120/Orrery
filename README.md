@@ -1,5 +1,13 @@
 # Orrery
 
+**Public launch status:** release infrastructure and static public pages are prepared; a production domain and hosting account have not yet been configured. There is no verified live demo URL yet.
+
+[Deployment guide](docs/DEPLOYMENT.md) · [SEO architecture and page inventory](docs/SEO.md) · [Google Search Console setup](docs/GOOGLE_SEARCH.md) · [Contributing](CONTRIBUTING.md)
+
+The public homepage and 23 supporting pages are generated as complete HTML. They load independently of WebGL; the simulator lives at `/app`, and existing scenario links remain at `/s/{id}`. Production uses Caddy HTTPS, FastAPI and persistent SQLite volumes, with online backups. Shared scenarios are excluded from indexing.
+
+![Orrery public-site preview](public/social/orrery-preview.png)
+
 ![Orrery observation workspace](docs/screenshots/immersive-earth.png)
 
 **Explore the Solar System and nearby stars. Build planetary systems. Plan missions.**
@@ -31,7 +39,7 @@ Start the frontend in another:
 npm.cmd run dev
 ```
 
-Open http://127.0.0.1:5173. Vite proxies /api to port 8000. The backend is optional for local physics, editing, presets, IndexedDB autosave, and JSON export; it is required for Horizons and shared scenarios.
+Open http://127.0.0.1:5173 for the public site or http://127.0.0.1:5173/app for the simulator. Vite proxies /api to port 8000. The backend is optional for local physics, editing, presets, IndexedDB autosave, and JSON export; it is required for Horizons and shared scenarios.
 
 ## Scientific workbench
 
@@ -168,21 +176,18 @@ Shared scenarios use unguessable read IDs and separate edit-key capabilities. Th
 
 ## Production deployment
 
-```powershell
-npm.cmd run build
-npm.cmd run preview
+Use the [production deployment guide](docs/DEPLOYMENT.md), including domain preflight, DNS, HTTPS, storage, backups and recovery. On a Linux Docker host:
+
+```sh
+cp .env.example .env
+# Set your actual PUBLIC_APP_URL, ORRERY_DOMAIN and ACME_EMAIL.
+node scripts/production-preflight.mjs
+docker compose up -d --build
 ```
 
-Serve dist/ with SPA fallback (including /s/*), proxy /api to FastAPI, and use HTTPS. Serve local assets with compatible same-origin resource policies. Add:
+Caddy serves static public pages, `/app`, and noindex `/s/{id}` entries; `/api` proxies to a private FastAPI container. It supplies isolation/security headers and obtains HTTPS certificates. SQLite and backups use persistent named volumes. Production OpenAPI/docs are disabled. Do not serve the application using Vite's development or preview server in production.
 
-```text
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-These headers and a secure context enable SharedArrayBuffer. The transferable ArrayBuffer fallback remains operational without them; append ?fallback to exercise it explicitly. The worker retains exactly-one-RPC ownership and stale-revision rejection in either transport. Worker load/decode failures and stalled RPCs end the session with a visible error; editing a parameter or returning to Reality retries with a fresh worker. Prediction workers support cancellation and a timeout.
-
-Configure ORRERY_DB for the SQLite path and ORRERY_ORIGINS for comma-separated allowed origins. Keep SQLite and edit keys out of public static directories. API OpenAPI docs are at /docs.
+The transferable fallback remains operational; append `?fallback` to `/app` to exercise it. Review [local release evidence](docs/PRODUCTION_VERIFICATION.md), [SEO page inventory](docs/SEO.md), and [Search Console instructions](docs/GOOGLE_SEARCH.md). Actual public deployment requires the owner's domain and host configuration.
 
 ## Verification
 
