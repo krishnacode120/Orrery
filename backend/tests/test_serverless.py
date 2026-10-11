@@ -1,5 +1,12 @@
 import os
 import pytest
+from pathlib import Path
+
+
+def test_vercel_flat_requirements_match_backend():
+    root = Path(__file__).resolve().parents[2]
+    assert (root/'requirements.txt').read_text().strip() == (root/'backend/requirements.txt').read_text().strip()
+
 from backend.db import database_url, PostgresConnection, initialize, connection, allow_request
 
 def test_serverless_refuses_temporary_sqlite(monkeypatch):

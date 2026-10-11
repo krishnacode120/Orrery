@@ -21,6 +21,6 @@ Serverless rate limits use atomic PostgreSQL counters shared across instances, w
 
 Headers preserve COOP/COEP and noindex for app/share/API routes. Generated HTML also has a domain-specific CSP meta policy; frame-ancestors is enforced by an HTTP CSP header. Preview builds use noindex; only production pages belong in search.
 
-No paid plan or database purchase is required by the code. Provider selection, free-tier limits, terms and any billing activation must be reviewed before provisioning. The current setup is paused at Neon's integration terms; nothing has been provisioned or billed. No database credentials belong in Git or screenshots.
+No paid plan or database purchase is required by the code. Provider selection, free-tier limits, terms and any billing activation must be reviewed before provisioning. The owner approved the integration terms. A dedicated orrery-postgres Free resource is provisioned in iad1 with optional authentication disabled; only the Orrery production environment is connected. No database credentials belong in Git or screenshots.
 
 References: https://vercel.com/docs/functions/runtimes/python and https://vercel.com/docs/functions/limitations.

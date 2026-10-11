@@ -8,7 +8,7 @@ output = root / "artifacts"
 output.mkdir(exist_ok=True)
 files = [root / name for name in (
     ".gitignore", "index.html", "package.json", "package-lock.json",
-    "vite.config.js", "README.md", "VERIFICATION.md", "Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example", "CONTRIBUTING.md", "vercel.json", "requirements.txt")]
+    "vite.config.js", "README.md", "VERIFICATION.md", "Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example", "CONTRIBUTING.md", "vercel.json", "requirements.txt", ".python-version")]
 text_suffixes = {".js", ".jsx", ".py", ".txt", ".json", ".md", ".mjs", ".css", ".html", ".yml", ".yaml", ".caddy"}
 for directory in ("src", "backend", "scripts", "docs", "public", "site", "deploy", "api", ".github"):
     files += [p for p in (root / directory).rglob("*")
@@ -25,7 +25,7 @@ parts = ["# Orrery — full project source\n\n",
 languages = {".jsx": "jsx", ".js": "javascript", ".mjs": "javascript",
              ".py": "python", ".json": "json", ".md": "markdown", ".html": "html"}
 for path, name in zip(files, manifest):
-    if path.suffix in text_suffixes or path.name in {".gitignore", ".dockerignore", ".env.example", "Dockerfile", "Caddyfile"}:
+    if path.suffix in text_suffixes or path.name in {".gitignore", ".dockerignore", ".env.example", "Dockerfile", "Caddyfile", ".python-version"}:
         content = path.read_text(encoding="utf-8")
         parts += [f"## {name}\n\n````{languages.get(path.suffix, 'text')}\n",
                   content, "\n````\n\n"]
