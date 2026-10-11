@@ -28,7 +28,7 @@ The landing notice originally overlapped onboarding; it now sits below the tour.
 
 No production hostname, server or hosting account was supplied. Public HTTPS issuance, external reachability, live API/Horizons, persistent-volume restart on the actual host, off-host backup transport, external alert delivery, Search Console/Bing ownership and sitemap submission cannot yet be verified.
 
-Docker is unavailable locally. The GitHub workflow builds both image targets, validates Caddy, replaces a database client container to test volume persistence and creates an online backup. Its run result is separate evidence; inspect the workflow associated with the release commit.
+Docker is unavailable locally. [GitHub Actions run 38135098113](https://github.com/krishnacode120/Orrery/actions/runs/38135098113), for implementation commit 4b161bb6a239ff774f80c886f6121abe38120e37, passed all three jobs: frontend, backend and containers. The container job built both image targets, validated Caddy, replaced a database client container to verify volume persistence and created an online backup. This does not verify DNS, certificate issuance or storage on a future production host.
 
 Core Web Vitals need measurement on the actual hosting network and real devices. No ranking, indexing, uptime or 60-FPS claim is made. The simulator remains larger than the public content bundle.
 

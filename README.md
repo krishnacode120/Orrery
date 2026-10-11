@@ -205,6 +205,10 @@ Detailed references: [camera navigation](docs/camera-navigation.md), [replay](do
 
 Texture authorship and license: [Solar System Scope / INOVE](https://www.solarsystemscope.com/textures/), [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [local attribution](public/textures/ATTRIBUTION.md). The maps are static artwork based on scientific imagery, with adjusted colors and some reconstructed regions.
 
+## License
+
+A repository-wide software license has not yet been selected by the owner. Public source visibility alone does not grant an open-source license. Bundled texture/catalog attribution and their separate licenses are documented above; preserve those notices.
+
 ## Development status
 
 Orrery is an actively developed simulation workspace, not a flight-certified or fully relativistic simulator. Automated physics checks do not establish visual quality or certify the complete original roadmap. See VERIFICATION.md for tested behavior and unresolved limits. GitHub Actions runs frontend tests/build and backend tests on pushes and pull requests.
