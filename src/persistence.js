@@ -32,9 +32,12 @@ export async function localExperiment(value) {
 }
 
 export async function api(path, options = {}) {
+  const limit=import.meta.env.VITE_SHARE_MAX_BYTES??32*1024*1024;
+  if(typeof options.body==='string'&&new TextEncoder().encode(options.body).byteLength>limit)throw new Error(`Hosted sharing supports up to ${limit/1024/1024} MiB. Use Export scenario for larger local files.`);
   const response = await fetch(`${import.meta.env.VITE_API_BASE_URL??'/api'}${path}`, { ...options,
     headers: { 'Content-Type':'application/json', ...options.headers }, signal: options.signal??AbortSignal.timeout(30000) });
   if(response.status===204)return null;
+  if(response.status===413)throw new Error('This scenario exceeds the hosting upload limit. Use local JSON export or reduce recorded trails/telemetry before sharing.');
   const text=await response.text();let result;
   try{result=text?JSON.parse(text):null;}catch{if(!response.ok)throw new Error(`Request failed (${response.status})`);throw new Error('API returned invalid JSON');}
   if (!response.ok) throw new Error(typeof result?.detail === 'string' ? result.detail : `Request failed (${response.status})`);

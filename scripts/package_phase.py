@@ -8,9 +8,9 @@ output = root / "artifacts"
 output.mkdir(exist_ok=True)
 files = [root / name for name in (
     ".gitignore", "index.html", "package.json", "package-lock.json",
-    "vite.config.js", "README.md", "VERIFICATION.md", "Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example", "CONTRIBUTING.md")]
+    "vite.config.js", "README.md", "VERIFICATION.md", "Dockerfile", "docker-compose.yml", ".dockerignore", ".env.example", "CONTRIBUTING.md", "vercel.json", "requirements.txt")]
 text_suffixes = {".js", ".jsx", ".py", ".txt", ".json", ".md", ".mjs", ".css", ".html", ".yml", ".yaml", ".caddy"}
-for directory in ("src", "backend", "scripts", "docs", "public", "site", "deploy", ".github"):
+for directory in ("src", "backend", "scripts", "docs", "public", "site", "deploy", "api", ".github"):
     files += [p for p in (root / directory).rglob("*")
               if p.is_file() and "__pycache__" not in p.parts
               and (p.suffix in text_suffixes or p.name == 'Caddyfile' or directory == "public" or p.suffix in {".png", ".jpg"})]

@@ -1,5 +1,6 @@
 import asyncio
 import json
+import hashlib
 import logging
 import os
 import time
@@ -15,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exception_handlers import request_validation_exception_handler
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from backend.db import initialize, connection
+from backend.db import initialize, connection, database_url, allow_request
 from backend.routers import horizons, presets, scenarios, mission, astronomy, definitions
 
 PRODUCTION = os.getenv('ORRERY_ENV') == 'production'
@@ -42,7 +43,7 @@ app = FastAPI(title='Orrery API', version='1.1.0', lifespan=lifespan,
               redoc_url=None if PRODUCTION else '/redoc',
               openapi_url=None if PRODUCTION else '/openapi.json')
 buckets = OrderedDict()
-MAX_BYTES = 32 * 1024 * 1024
+MAX_BYTES = min(32 * 1024 * 1024, max(1024, int(os.getenv('ORRERY_MAX_BYTES', str(32 * 1024 * 1024)))))
 
 def safe_log(event, request, status, **extra):
     # Route templates, never share IDs, query strings, body data or header values.
@@ -68,6 +69,16 @@ async def limits(request: Request, call_next):
     if request.method != 'OPTIONS' and request.url.path != '/api/ready':
         now = time.monotonic()
         host = request.client.host if request.client else 'unknown'
+        if database_url():
+            stamp = time.time()
+            key = hashlib.sha256((host+':'+str(int(stamp//60))).encode()).hexdigest()
+            try:
+                allowed = await asyncio.to_thread(allow_request, key, stamp)
+            except Exception as error:
+                safe_log('rate_store_unavailable',request,503,errorType=type(error).__name__)
+                return JSONResponse({'detail':'Service temporarily unavailable'},503)
+            if not allowed:
+                return JSONResponse({'detail':'Rate limit: 120 requests/minute'},429,headers={'Retry-After':'60'})
         queue = buckets.setdefault(host, deque())
         buckets.move_to_end(host)
         while len(buckets)>10000:
@@ -85,7 +96,7 @@ async def limits(request: Request, call_next):
                 async for chunk in request.stream():
                     size += len(chunk)
                     if size>MAX_BYTES:
-                        return JSONResponse({'detail':'Scenario exceeds 32 MB'},413)
+                        return JSONResponse({'detail':f'Scenario exceeds hosted sharing limit ({MAX_BYTES//(1024*1024)} MiB). Use local JSON export for larger scenarios.'},413)
                     chunks.append(chunk)
         except TimeoutError:
             return JSONResponse({'detail':'Request body timeout'},408)

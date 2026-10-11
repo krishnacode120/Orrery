@@ -24,6 +24,7 @@ WORKDIR /app
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && useradd --uid 10001 --create-home orrery && mkdir /data /backups && chown orrery:orrery /data /backups
 COPY backend /app/backend
+COPY src/astronomy/data /app/src/astronomy/data
 COPY deploy /app/deploy
 USER 10001:10001
 EXPOSE 8000

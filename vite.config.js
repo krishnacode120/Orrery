@@ -15,7 +15,7 @@ export default defineConfig(({mode})=>{
  if(env.API_BASE_URL&&env.API_BASE_URL!=='/api')throw new Error('This deployment requires same-origin API_BASE_URL=/api');
  return {
   plugins: [react(),seoSite(env)],
-  define:{__ORRERY_BUILD__:JSON.stringify(buildInfo),'import.meta.env.VITE_API_BASE_URL':JSON.stringify(env.API_BASE_URL??'/api')},
+  define:{__ORRERY_BUILD__:JSON.stringify(buildInfo),'import.meta.env.VITE_API_BASE_URL':JSON.stringify(env.API_BASE_URL??'/api'),'import.meta.env.VITE_SHARE_MAX_BYTES':JSON.stringify(Number(env.ORRERY_SHARE_MAX_BYTES)||32*1024*1024)},
   server: { headers, proxy: { '/api': 'http://127.0.0.1:8000' } },
   preview: { headers, proxy: { '/api': 'http://127.0.0.1:8000' } },
   worker: { format: 'es' },

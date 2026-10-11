@@ -36,6 +36,30 @@ jobs:
           docker compose run --rm --no-deps backup python -m deploy.backup
       - if: always()
         run: docker compose down --volumes
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: orrery
+          POSTGRES_PASSWORD: ci-only-disposable
+          POSTGRES_DB: orrery_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgresql://orrery:ci-only-disposable@localhost:5432/orrery_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m pytest backend/tests/test_serverless.py -q
   backend:
     runs-on: ubuntu-latest
     steps:

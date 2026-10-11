@@ -72,7 +72,7 @@ async def horizons(request: Request,
         raise HTTPException(502, 'Horizons could not supply a valid vector for this target/date') from error
     with connection() as db:
         db.execute('DELETE FROM horizons_cache WHERE expires_at<?', (time.time(),))
-        db.execute('INSERT OR REPLACE INTO horizons_cache VALUES (?,?,?)',
+        db.execute('INSERT INTO horizons_cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,expires_at=excluded.expires_at',
                    (key, json.dumps(result), time.time()+7*86400))
     return {**result, 'cached': False}
 
@@ -111,5 +111,5 @@ async def series(request: Request,
     except (httpx.HTTPError, ValueError, KeyError, IndexError, csv.Error) as error:
         raise HTTPException(502, 'Horizons could not supply this playback interval') from error
     with connection() as db:
-        db.execute('INSERT OR REPLACE INTO horizons_cache VALUES (?,?,?)', (key, json.dumps(result), time.time()+7*86400))
+        db.execute('INSERT INTO horizons_cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,expires_at=excluded.expires_at', (key, json.dumps(result), time.time()+7*86400))
     return {**result, 'cached': False}
