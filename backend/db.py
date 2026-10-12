@@ -32,8 +32,10 @@ def connection():
         from psycopg.rows import dict_row
         options = {'connect_timeout': 10, 'row_factory': dict_row}
         if os.getenv('ORRERY_ENV') == 'production':
-            # Provider certificate verification uses libpq's system trust store.
-            options.update(sslmode='verify-full', sslrootcert='system')
+            # libpq wheels may lack a usable serverless system CA location.
+            # Use the packaged Mozilla trust roots without disabling hostname checks.
+            import certifi
+            options.update(sslmode='verify-full', sslrootcert=certifi.where())
         with psycopg.connect(url, **options) as db:
             db.execute("SET statement_timeout = '15000ms'")
             yield PostgresConnection(db)

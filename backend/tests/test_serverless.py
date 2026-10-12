@@ -15,6 +15,27 @@ def test_serverless_refuses_temporary_sqlite(monkeypatch):
     with pytest.raises(RuntimeError,match='persistent'):
         database_url()
 
+def test_production_postgres_verifies_with_packaged_roots(monkeypatch):
+    import certifi
+    import psycopg
+    from contextlib import contextmanager
+    captured = {}
+    class Database:
+        def execute(self, sql):
+            assert sql == "SET statement_timeout = '15000ms'"
+    @contextmanager
+    def connect(url, **options):
+        captured.update(options)
+        yield Database()
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://test.invalid/unused')
+    monkeypatch.setenv('ORRERY_ENV', 'production')
+    monkeypatch.setattr(psycopg, 'connect', connect)
+    with connection():
+        pass
+    assert captured['sslmode'] == 'verify-full'
+    assert captured['sslrootcert'] == certifi.where()
+    assert Path(captured['sslrootcert']).is_file()
+
 def test_postgres_parameter_values_are_not_interpolated():
     class Recorder:
         def execute(self,sql,values):
