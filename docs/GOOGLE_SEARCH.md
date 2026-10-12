@@ -1,6 +1,6 @@
 # Google Search Console and discovery
 
-Production origin: **https://orrery-eight-rose.vercel.app/**. Ownership verification is being configured with the owner's explicit approval; sitemap submission is not yet confirmed.
+Production origin: **https://orrery-eight-rose.vercel.app/**. **Ownership verified on 2026-10-12 using the approved HTML tag.** Sitemap processing now reports **Success**, with **24 discovered pages** (2026-10-12). The initial fetch warning cleared after Google processed the submission. The public sitemap returns HTTP 200 with application/xml. Google's homepage live test reports **URL is available to Google / Page can be indexed**, with a valid Breadcrumb item. The homepage indexing request was accepted into Google's crawl queue. Actual indexing and rankings are not yet confirmed.
 
 ## Assigned Vercel hostname
 
@@ -33,14 +33,14 @@ IndexNow is optional and is not configured. If added later, generate an operator
 
 Fill only after observing each result:
 
-- Production origin:
-- Domain/DNS operator:
-- Google property:
-- Verification observed at:
-- Sitemap processing status:
-- Homepage canonical/index status:
-- Major landing-page status:
-- Bing property/sitemap status:
-- Next review date:
+- Production origin: https://orrery-eight-rose.vercel.app/
+- Domain/DNS operator: Vercel assigned hostname; no custom domain
+- Google property: URL prefix matching the production origin
+- Verification observed: 2026-10-12, HTML tag
+- Sitemap: Success; 24 discovered pages on 2026-10-12
+- Homepage: live test indexable; indexing requested successfully; indexed status not confirmed
+- Major landing pages: public HTTP/HTML checks passed; search indexing unconfirmed
+- Bing: not submitted
+- Review indexing reports after Google's processing interval. Do not repeatedly resubmit to accelerate indexing.
 
 References: [Google ownership verification](https://support.google.com/webmasters/answer/9008080), [building/submitting sitemaps](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap), [URL Inspection](https://support.google.com/webmasters/answer/9012289).

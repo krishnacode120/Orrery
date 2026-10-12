@@ -21,7 +21,7 @@ The simulation fills the window. A compact object navigator, collapsible tool pa
 
 ## Run on Windows
 
-Requires Node.js 20.19+ (tested with 22.14) and Python 3.11+ (tested with 3.13).
+Requires Node.js 22.x (tested with 22.14) and Python 3.11+ (tested with 3.13).
 
 ```powershell
 npm.cmd ci
@@ -174,11 +174,11 @@ Mission replay records complete physical snapshots with fuel, stages and events.
 
 IndexedDB autosaves every five seconds and retains explicit saved/recent scenarios. Version 1 files migrate to version 2. Exports include bodies, settings, views/cameras, missions, vehicle configurations, burns, stations, bounded telemetry/events, and sampled trail history. Negative zero is normalized at the JSON boundary. Experiment branches add optional parent metadata and up to 256 scheduled changes. While What-If is active, root autosave preserves the original scenario and a separate key autosaves the experiment session, including the original pause state. Saved sessions are validated before recovery; corrupt records leave the live scenario intact.
 
-Shared scenarios use unguessable read IDs and separate edit-key capabilities. The URL permits reading; updating, deleting, metadata editing and camera writes require X-Edit-Key. No user authentication is introduced. The in-memory rate limiter is suitable for one API process; deploy an edge/shared limiter before scaling to multiple processes.
+Shared scenarios use unguessable read IDs and separate edit-key capabilities. The URL permits reading; updating, deleting, metadata editing and camera writes require X-Edit-Key. No user authentication is introduced. SQLite uses a local limiter suitable for one API process. The Vercel/PostgreSQL deployment also uses shared atomic rate counters across serverless instances.
 
 ## Production deployment
 
-Use the [production deployment guide](docs/DEPLOYMENT.md), including domain preflight, DNS, HTTPS, storage, backups and recovery. On a Linux Docker host:
+The live site runs on Vercel with Neon PostgreSQL. See [Vercel setup](docs/VERCEL.md) for configuration, TLS, payload limits and backup responsibilities. The [production deployment guide](docs/DEPLOYMENT.md) also covers a self-hosted alternative. On a Linux Docker host:
 
 ```sh
 cp .env.example .env
@@ -189,7 +189,7 @@ docker compose up -d --build
 
 Caddy serves static public pages, `/app`, and noindex `/s/{id}` entries; `/api` proxies to a private FastAPI container. It supplies isolation/security headers and obtains HTTPS certificates. SQLite and backups use persistent named volumes. Production OpenAPI/docs are disabled. Do not serve the application using Vite's development or preview server in production.
 
-The transferable fallback remains operational; append `?fallback` to `/app` to exercise it. Review [local release evidence](docs/PRODUCTION_VERIFICATION.md), [SEO page inventory](docs/SEO.md), and [Search Console instructions](docs/GOOGLE_SEARCH.md). Actual public deployment requires the owner's domain and host configuration.
+The transferable fallback remains operational; append `?fallback` to `/app` to exercise it. Review [local release evidence](docs/PRODUCTION_VERIFICATION.md), [SEO page inventory](docs/SEO.md), and [Search Console instructions](docs/GOOGLE_SEARCH.md). A custom domain can be added later; the assigned Vercel HTTPS hostname is already public.
 
 ## Verification
 
