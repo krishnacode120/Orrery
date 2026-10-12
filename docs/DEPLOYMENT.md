@@ -2,9 +2,11 @@
 
 ## Release status
 
-Production domain/platform: **not configured**. No public deployment or Search Console ownership is claimed. The release is designed for a Linux host with Docker Compose, an operator-controlled DNS name, inbound TCP 80/443 and UDP 443, and persistent storage. The simulator remains React/Vite + Three.js + worker physics; the backend remains FastAPI/SQLite.
+Public deployment: **https://orrery-eight-rose.vercel.app/** on Vercel, with dedicated Neon PostgreSQL (Free). See [Vercel deployment](VERCEL.md) for the active architecture and [verification results](PRODUCTION_VERIFICATION.md). The simulator remains React/Vite + Three.js + worker physics; FastAPI serves the same-domain API. Local development defaults to SQLite.
 
-Use a single small-server deployment initially. One FastAPI worker keeps the in-memory rate limiter coherent. SQLite is on a named persistent volume, not a container layer. Move to PostgreSQL and a shared rate limiter only when a measured workload requires horizontal scaling; this release does not pretend to implement that migration.
+The remainder of this guide describes the alternative self-hosted Docker/Caddy deployment.
+
+Use a single small-server deployment initially. One FastAPI worker keeps the in-memory rate limiter coherent. SQLite is on a named persistent volume, not a container layer. The Vercel deployment instead uses PostgreSQL-backed rate counters shared across function instances.
 
 ## Configure and launch
 

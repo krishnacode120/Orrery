@@ -1,6 +1,14 @@
 # Google Search Console and discovery
 
-Status: **not submitted**. A working production domain and an authorized owner's Google account are required. DNS verification tokens must come from that account; do not invent them or post them in issues.
+Production origin: **https://orrery-eight-rose.vercel.app/**. Ownership verification is being configured with the owner's explicit approval; sitemap submission is not yet confirmed.
+
+## Assigned Vercel hostname
+
+Use a **URL-prefix** property for `https://orrery-eight-rose.vercel.app/`; you do not control DNS for `vercel.app`. Choose HTML-tag verification. The approved public token is scoped to that exact homepage in `site/verification.mjs`. After deployment, verify the tag in page source and click Verify. Keep the token deployed. Submit `https://orrery-eight-rose.vercel.app/sitemap.xml` and inspect the homepage. Verification and sitemap submission do not guarantee indexing.
+
+## Future custom domain
+
+When a custom domain is supplied, set PUBLIC_APP_URL, redeploy canonical URLs and use the following DNS workflow. Tokens must come from the intended owner account.
 
 1. Open Google Search Console using the intended owner account.
 2. Add a Domain property for the exact registered domain. A Domain property covers protocols/subdomains; its normal verification method is DNS.

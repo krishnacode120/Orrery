@@ -1,10 +1,12 @@
 # Orrery
 
-**Public launch status:** release infrastructure and static public pages are prepared; a production domain and hosting account have not yet been configured. There is no verified live demo URL yet.
+**Live:** [Orrery](https://orrery-eight-rose.vercel.app/) · [Launch simulator](https://orrery-eight-rose.vercel.app/app) · [API health](https://orrery-eight-rose.vercel.app/api/health)
+
+Hosted on Vercel with dedicated Neon PostgreSQL (Free). Production HTTPS, scenario CRUD, NASA Horizons, cross-origin isolation and transferable fallback verified on 2026-10-12. Custom domain and off-provider scheduled backups remain operator setup tasks.
 
 [Deployment guide](docs/DEPLOYMENT.md) · [SEO architecture and page inventory](docs/SEO.md) · [Google Search Console setup](docs/GOOGLE_SEARCH.md) · [Contributing](CONTRIBUTING.md)
 
-The public homepage and 23 supporting pages are generated as complete HTML. They load independently of WebGL; the simulator lives at `/app`, and existing scenario links remain at `/s/{id}`. Production uses Caddy HTTPS, FastAPI and persistent SQLite volumes, with online backups. Shared scenarios are excluded from indexing.
+The public homepage and 23 supporting pages are generated as complete HTML. They load independently of WebGL; the simulator lives at `/app`, and existing scenario links remain at `/s/{id}`. The public deployment uses Vercel HTTPS and FastAPI with persistent PostgreSQL. [Vercel setup and limits](docs/VERCEL.md) explains the 4 MiB hosted sharing limit. Docker/Caddy with persistent SQLite and online backups remains a self-hosted alternative. Shared scenarios are excluded from indexing.
 
 ![Orrery public-site preview](public/social/orrery-preview.png)
 

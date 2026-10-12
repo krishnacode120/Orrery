@@ -1,4 +1,19 @@
-# Production preparation verification — 2026-10-11
+# Production verification
+
+## Public Vercel release — 2026-10-12
+
+Origin: https://orrery-eight-rose.vercel.app/ · API: /api · Simulator: /app.
+
+- Vercel production commit `996f1f800966396831d05b8c5566aba3e5bf1967` deployed successfully. [Release CI](https://github.com/krishnacode120/Orrery/actions/runs/38199763432) passed, including real PostgreSQL and container checks.
+- 30 HTTP/SEO smoke checks passed on the public HTTPS origin: 24 public HTML pages, app/share routes, robots, sitemap, API health and genuine unknown-route 404.
+- `/api/ready`, presets and packaged astronomy metadata return 200. NASA Horizons Mars at JD 2451545 returned real SI vectors; repeated request hit the persistent cache.
+- Synthetic scenario create/read/update succeeds; an invalid edit key is rejected with 403. A probe is retained temporarily for verification across the next deployment.
+- HTTP redirects to HTTPS with 308. The production simulator reports cross-origin isolated Yes and Shared memory. Forced fallback reports Transferable messages with the 27-body system loaded.
+- Database: dedicated Neon Free in iad1, production environment only. Full TLS hostname/certificate verification uses packaged CA roots; no verification bypass. The platform's missing default libpq trust path caused an initial startup failure and was fixed before declaring API health.
+
+Custom domain, scheduled off-provider database backups/restore drill and external uptime alerts remain unconfigured. Search Console verification is in progress; no indexing or ranking claim is made. Hosted scenario payloads are capped at 4 MiB; local export retains the larger limit. See [Vercel limits and recovery](VERCEL.md).
+
+## Local preparation — 2026-10-11
 
 These are local release checks, not proof of public deployment.
 
@@ -24,7 +39,7 @@ These are local release checks, not proof of public deployment.
 
 The landing notice originally overlapped onboarding; it now sits below the tour. Guided public examples do not overwrite the user's prior autosave.
 
-## Deployment gates still open
+## Historical predeployment gates (superseded by the public release above)
 
 No production hostname, server or hosting account was supplied. Public HTTPS issuance, external reachability, live API/Horizons, persistent-volume restart on the actual host, off-host backup transport, external alert delivery, Search Console/Bing ownership and sitemap submission cannot yet be verified.
 
