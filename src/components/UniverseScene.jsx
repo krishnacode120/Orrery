@@ -1,3 +1,4 @@
+import CatalogPicking from './CatalogPicking.jsx';
 import {catalogVertex,catalogFragment} from '../shaders/catalog.js';
 import CatalogBody from './CatalogBody.jsx';
 import {useEffect,useMemo,useRef} from 'react';
@@ -45,7 +46,7 @@ function Navigator({objects,frame}){
 function CatalogPoints({objects,frame}){
  const geometry=useMemo(()=>{const g=new BufferGeometry();g.setAttribute('position',new Float32BufferAttribute(new Float32Array(objects.length*3),3));g.setAttribute('color',new Float32BufferAttribute(objects.flatMap(s=>new Color(s.color??catalogColor(s)).toArray()),3));return g;},[objects]);useEffect(()=>()=>geometry.dispose(),[geometry]);
  useFrame(()=>{const a=geometry.attributes.position.array,f=frame.current;objects.forEach((o,i)=>a.set(relativeRender(o.position,f.origin,f.unit),i*3));geometry.attributes.position.needsUpdate=true;},-5);
- return <points geometry={geometry} frustumCulled={false} onClick={e=>{e.stopPropagation();if(performance.now()<(useExplorerStore.getState().suppressPickUntil??0))return;if(objects[e.index])useExplorerStore.getState().select(objects[e.index].id);}} onDoubleClick={e=>{e.stopPropagation();if(objects[e.index])useExplorerStore.getState().focus(objects[e.index].id);}}><shaderMaterial vertexShader={catalogVertex} fragmentShader={catalogFragment} uniforms={{pointSize:{value:5},opacity:{value:.9},tint:{value:new Color('#d6dce4')}}} transparent depthWrite={false}/></points>;
+ return <points geometry={geometry} frustumCulled={false}><shaderMaterial vertexShader={catalogVertex} fragmentShader={catalogFragment} uniforms={{pointSize:{value:5},opacity:{value:.9},tint:{value:new Color('#d6dce4')}}} transparent depthWrite={false}/></points>;
 }
 function GalaxyCloud({galaxy,frame}){
  const positions=useMemo(()=>{let seed=17;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};return Array.from({length:galaxy.id==='milky-way'?10000:4500},(_,i)=>{const r=galaxy.radius*Math.sqrt(random()),a=(i%4)*Math.PI/2+3.5*Math.log(1+r/(galaxy.radius*.08))+(random()-.5)*.5,p=[r*Math.cos(a),r*Math.sin(a),(random()-.5)*galaxy.radius*.035];return add(galaxy.position,galacticToEcliptic(p));});},[galaxy]);
@@ -64,7 +65,7 @@ function SystemGeometry({objects,frame}){
 }
 function UniverseWorld(){
  const hidden=useUIStore(s=>s.hidden||!s.hud),section=useExplorerStore(s=>s.section),systemId=useExplorerStore(s=>s.systemId),selected=useExplorerStore(s=>s.selected),labels=useExplorerStore(s=>s.labels),frame=useRef(defaultFrame),objects=useMemo(()=>sceneObjects(section,systemId),[section,systemId]),important=objects.filter(o=>o.id===selected||section==='system'||section==='group'||section==='milky'&&['hyg-0','milky-way','sgr-a'].includes(o.id)||section==='nearby'&&['hyg-0','hyg-70666','hyg-71456','hyg-87665','hyg-32263'].includes(o.id));
- return <><Navigator objects={objects} frame={frame}/><CatalogPoints objects={objects} frame={frame}/>{labels&&!hidden&&important.slice(0,16).map(o=><Marker key={o.id} object={o} frame={frame} selected={selected===o.id}/>)}
+ return <><Navigator objects={objects} frame={frame}/><CatalogPicking objects={objects} frame={frame}/><CatalogPoints objects={objects} frame={frame}/>{labels&&!hidden&&important.slice(0,16).map(o=><Marker key={o.id} object={o} frame={frame} selected={selected===o.id}/>)}
  {section==='system'&&<><SystemGeometry objects={objects} frame={frame}/>{objects.map(o=><CatalogBody key={o.id} object={o} frame={frame}/>)}</>}
  {['milky','group'].includes(section)&&GALAXIES.filter(g=>g.type==='galaxy'&&(section==='group'||g.id==='milky-way')).map(g=><GalaxyCloud key={g.id} galaxy={g} frame={frame}/>)}</>;
 }

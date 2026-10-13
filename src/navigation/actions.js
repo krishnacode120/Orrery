@@ -11,8 +11,9 @@ export function systemCamera(direction=OVERVIEW_DIRECTION,region='all'){
  useCameraStore.getState().request('system',{direction,region});
 }
 export function setCameraMode(mode,targetId){
- const sim=useSimStore.getState();sim.configureView({cameraMode:mode,cameraTarget:targetId??sim.scenario.view.selected,navigation:{...sim.scenario.view.navigation,...(mode==='free'?{reference:'inertial'}:{})}});
- useCameraStore.getState().request(mode==='surface'?'surface':'mode',{mode,id:targetId??sim.scenario.view.selected,targetId:targetId??sim.scenario.view.selected});
+ const sim=useSimStore.getState(),target=mode==='free'?null:targetId??sim.scenario.view.selected;
+ sim.configureView({cameraMode:mode,cameraTarget:target,navigation:{...sim.scenario.view.navigation,...(mode==='free'?{reference:'inertial',referenceId:null}:{})}});
+ useCameraStore.getState().request(mode==='surface'?'surface':'mode',{mode,id:target,targetId:target});
 }
 export function cameraPreset(name){
  const map={

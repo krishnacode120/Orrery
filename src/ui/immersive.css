@@ -48,3 +48,5 @@ main[data-hidden="true"]>.camera-minimal{display:flex!important;bottom:14px;back
 @media(min-width:801px){main:has(section[data-panel-scroll]) .viewport-actions{right:356px}}@media(max-width:800px){main:has(section[data-panel-scroll]) .viewport-actions{display:none}}
 @media(max-width:800px){.viewport-actions{top:128px;bottom:auto;right:8px}}@media(max-width:500px){main .main-header>.row>button:first-child{display:none}main .main-header>.row{gap:4px}main .main-header .brand h1{display:none}main .main-header .brand-mark{display:block;width:18px}main .main-header .brand-mark svg{width:18px}main .main-header .mode-switch button{min-height:30px;white-space:nowrap}}
 .solar-view-picker{width:116px;font-size:10px;padding:5px;min-height:29px}.viewport-actions .solar-view-picker{border-color:#303b48;background:#0d131be6}@media(max-width:800px){.solar-view-picker{width:93px;font-size:9px}.viewport-actions{max-width:calc(100% - 16px)}.viewport-actions .solar-view-picker{width:93px}}
+
+.camera-debug{max-height:calc(100dvh - 240px);overflow:auto;pointer-events:auto}.camera-debug details{margin-top:12px}

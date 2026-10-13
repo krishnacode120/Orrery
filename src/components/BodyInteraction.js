@@ -16,7 +16,6 @@ export function useBodyDrag(body){
   return()=>{unsubscribe();window.removeEventListener('keydown',key);window.removeEventListener('blur',cancel);cancel();};
  },[]);
  return {
- onContextMenu:e=>{if(performance.now()<(useCameraStore.getState().suppressPickUntil??0))return;e.stopPropagation();e.nativeEvent?.preventDefault();useUIStore.getState().update({context:{id:body.id,x:e.clientX,y:e.clientY}});},
  onPointerDown:e=>{
   if(!(e.ctrlKey||e.shiftKey))return;
   const sim=useSimStore.getState();if(sim.scenario.mode!=='sandbox'||['free','surface','target-lock'].includes(sim.scenario.view.cameraMode))return;e.stopPropagation();

@@ -2,7 +2,8 @@ import {useRef} from 'react';
 import {useFrame} from '@react-three/fiber';
 import {useSimStore} from '../store/useSimStore.js';
 import {viewSpace} from './viewSpace.js';
-// Static lines and HTML labels retain the frame in which their buffers were built.
+// Static geometry retains its construction frame. Never wrap objects (such as
+// AdaptiveLabels) that already write active-frame coordinates each render frame.
 // Rebase them as one group, so a floating-origin update never tears a camera frame.
 export default function FrameGroup({children}){
  const group=useRef(),space=viewSpace(useSimStore.getState().scenario),base={origin:[...space.origin],unit:space.unit,distanceScale:space.distanceScale,compressed:space.compressed};

@@ -2,11 +2,12 @@ import {writeFile,mkdir} from 'node:fs/promises';
 import {stateAt} from '../src/physics/elements.js';
 import {julianDate,dot,norm,sub} from '../src/physics/units.js';
 const epochs=process.argv[2]?[process.argv[2]]:['2000-01-01T12:00:00Z','2026-10-09T00:00:00Z','2031-01-01T00:00:00Z'];
+const apiBase=process.env.ORRERY_API_URL??'http://127.0.0.1:8000/api';
 const targets=[['mercury','199'],['venus','299'],['earth','3'],['mars','499'],['jupiter','5'],['saturn','6']],rows=[];
 for(const date of epochs)for(const [body,target] of targets){
  const jd=julianDate(date);
  try{
-  const response=await fetch('http://127.0.0.1:8000/api/horizons?target='+target+'&jd='+jd,{signal:AbortSignal.timeout(30000)});
+  const response=await fetch(apiBase+'/horizons?target='+target+'&jd='+jd,{signal:AbortSignal.timeout(30000)});
   if(!response.ok)throw new Error('Horizons proxy '+response.status+': '+await response.text());
   const actual=await response.json(),approximate=stateAt(body,jd),cosine=dot(actual.position,approximate.position)/(norm(actual.position)*norm(approximate.position)),angularErrorDegrees=Math.acos(Math.max(-1,Math.min(1,cosine)))*180/Math.PI;
   rows.push({date,jd,body,target,positionErrorMeters:norm(sub(actual.position,approximate.position)),velocityErrorMetersPerSecond:norm(sub(actual.velocity,approximate.velocity)),angularErrorDegrees,passed:angularErrorDegrees<1,timeScale:actual.timeScale,frame:actual.frame,cached:actual.cached});

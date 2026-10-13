@@ -1,4 +1,5 @@
 import {useRef,useMemo} from 'react';
+import {selectObject} from '../interaction/selection.js';
 import {focusCamera} from '../navigation/actions.js';
 import {useFrame,useThree} from '@react-three/fiber';
 import {Html,Line} from '@react-three/drei';
@@ -28,13 +29,13 @@ export function AdaptiveLabels(){
    if(!selected&&['vehicle','true'].includes(current.view.scale))visible=false;
    const x=(point.x+1)/2*size.width,y=(1-point.y)/2*size.height,box=[x-35,y-12,x+70,y+12];
    if(!selected&&boxes.some(r=>box[0]<r[2]&&box[2]>r[0]&&box[1]<r[3]&&box[3]>r[1]))visible=false;
-   if(visible)boxes.push(box);el.style.opacity=visible?'1':'0';el.style.pointerEvents=visible?'auto':'none';
+   if(visible)boxes.push(box);el.style.visibility=visible?'visible':'hidden';el.setAttribute('aria-hidden',String(!visible));el.tabIndex=visible?0:-1;el.style.pointerEvents=visible?'auto':'none';
   }
  });
  if(!s.view.labels||ui.hidden||!ui.hud)return null;
  const space=viewSpace(s);
  return <>{bodies.map(b=><group ref={g=>g?groups.current.set(b.id,g):groups.current.delete(b.id)} key={b.id} position={space.transform(b.position)}><Html center zIndexRange={[12,0]} style={{pointerEvents:'none'}}>
- <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>useSimStore.getState().configureView({selected:b.id})} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html></group>)}</>;
+ <button ref={el=>el?refs.current.set(b.id,el):refs.current.delete(b.id)} className={'body-label '+(b.id===s.view.selected?'selected':'')} style={{pointerEvents:'auto',fontSize:10*(s.view.labelScale??1),transform:'translate(18px,-15px)'}} onClick={()=>selectObject(b.id)} onDoubleClick={()=>{focusCamera(b.id);}}>{b.id===s.view.selected?'⌖ ':'· '}{b.name}</button></Html></group>)}</>;
 }
 export function ScienceOverlays(){
  const sim=useSimStore(),s=sim.scenario,space=viewSpace(s),b=s.bodies.find(x=>x.id===s.view.selected),ui=useUIStore();

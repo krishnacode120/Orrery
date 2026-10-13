@@ -11,7 +11,6 @@ import HistoryTrails from './HistoryTrails.jsx';
 import WhatIfGhosts from './WhatIfGhosts.jsx';
 import {renderScenario,effectTime} from '../rendering/frame.js';
 import {useCameraStore} from '../store/useCameraStore.js';
-import {focusCamera} from '../navigation/actions.js';
 import Picking from './Picking.jsx';
 import {memo,Suspense,useMemo,useRef,useEffect} from 'react';
 import {Canvas,useFrame,useThree} from '@react-three/fiber';
@@ -30,7 +29,6 @@ import {Atmosphere,PlanetRings,SolarHalo} from './CelestialEffects.jsx';
 import {viewSpace,displayRadius} from './viewSpace.js';
 import {vertex,planetFragment,atmosphereFragment,diskFragment,lensFragment,portalFragment} from '../shaders/materials.js';
 
-const select=id=>{if(performance.now()<(useCameraStore.getState().suppressPickUntil??0))return;useSimStore.getState().configureView({selected:id});};
 function PlanetMaterial({body}) {
  const mapName={earth:'earth_daymap',venus:'venus_atmosphere',mercury:'mercury',mars:'mars',jupiter:'jupiter',saturn:'saturn',uranus:'uranus',neptune:'neptune',sun:'sun',moon:'moon'}[body.id]??(body.material==='earth'?'earth_daymap':null);
  const [map,night,clouds]=useTexture(['/textures/'+(mapName??'moon')+'.jpg','/textures/earth_nightmap.jpg','/textures/earth_clouds.jpg']);
@@ -69,7 +67,7 @@ function BodyMesh({body}) {
  const dark=body.type==='blackHole',vehicle=!!body.rocket||!!body.spacecraft||!!body.metadata?.separatedStage;
  const nearestStar=s.bodies.filter(b=>b.type==='star').sort((a,b)=>norm(sub(a.position,body.position))-norm(sub(b.position,body.position)))[0];
  const tail=unitVector(nearestStar?sub(body.position,nearestStar.position):[1,0,0]),tailDirection=new Vector3(tail[0],tail[2],-tail[1]);
- return <group name={'body-'+body.id} {...dragHandlers} ref={group} position={space.transform(body.position)} onClick={e=>{e.stopPropagation();select(body.id);}} onDoubleClick={e=>{e.stopPropagation();focusCamera(body.id);}} onPointerOver={()=>{document.body.style.cursor='pointer';}} onPointerOut={()=>{document.body.style.cursor='';}}>
+ return <group name={'body-'+body.id} {...dragHandlers} ref={group} position={space.transform(body.position)}>
  <group quaternion={new Quaternion().setFromUnitVectors(new Vector3(0,1,0),new Vector3(Math.sin(body.axialTilt*Math.PI/180)*Math.cos(Math.atan2(body.spin.axis[1],body.spin.axis[0])),Math.cos(body.axialTilt*Math.PI/180),-Math.sin(body.axialTilt*Math.PI/180)*Math.sin(Math.atan2(body.spin.axis[1],body.spin.axis[0]))))}>
  {dark?<><mesh><sphereGeometry args={[radius,40,32]}/><meshBasicMaterial color="#000000"/></mesh>
  <mesh rotation={[Math.PI/2,0,0]}><planeGeometry args={[radius*(body.blackHole?.diskSize??12)*2,radius*(body.blackHole?.diskSize??12)*2]}/><shaderMaterial vertexShader={vertex} fragmentShader={diskFragment} uniforms={diskUniforms} side={DoubleSide} transparent depthWrite={false}/></mesh>
@@ -93,7 +91,7 @@ function Particles({bodies}) {
  mesh.current.count=list.length;list.forEach((b,i)=>{dummy.position.fromArray(space.transform(b.position));dummy.scale.setScalar(b.visible?(s.view.realRadii?b.radius/space.unit*space.distanceScale:Math.max(displayRadius(b,s,space),.016)):0);dummy.updateMatrix();mesh.current.setMatrixAt(i,dummy.matrix);mesh.current.setColorAt(i,color.set(b.color));});
  mesh.current.instanceMatrix.needsUpdate=true;if(mesh.current.instanceColor)mesh.current.instanceColor.needsUpdate=true;
  });
- return <instancedMesh ref={mesh} args={[null,null,20000]} frustumCulled={false} onClick={e=>{e.stopPropagation();const list=useSimStore.getState().scenario.bodies.filter(isParticle);if(list[e.instanceId])select(list[e.instanceId].id);}}><icosahedronGeometry args={[1,0]}/><meshBasicMaterial color="#ffffff"/></instancedMesh>;
+ return <instancedMesh ref={mesh} args={[null,null,20000]} frustumCulled={false} ><icosahedronGeometry args={[1,0]}/><meshBasicMaterial color="#ffffff"/></instancedMesh>;
 }
 const isParticle=b=>(b.type==='asteroid'||b.disrupted)&&!b.rocket&&!b.spacecraft&&!b.metadata?.separatedStage;
 function Paths() {
@@ -155,7 +153,7 @@ function HabitableZoneGuide(){const s=useSimStore(x=>x.scenario),ref=useRef(),st
 function World() {
  const composer=useRef();
  const s=useSimStore(x=>x.scenario),quality=useSimStore(x=>x.qualityLevel),major=s.bodies.filter(b=>!isParticle(b)&&(s.view.showMoons!==false||b.type!=='moon'));
- return <><MotionFrame/><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<CatalogSky/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<FrameGroup><LaunchSite/></FrameGroup><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/><AdaptiveLabels/></FrameGroup><HistoryTrails/><EnvironmentLayers/><HabitableZoneGuide/><WhatIfGhosts/><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
+ return <><MotionFrame/><ambientLight intensity={.16}/>{!s.bodies.some(b=>b.type==='star')&&<directionalLight position={[100,30,10]} intensity={2.5}/>}<CatalogSky/>{major.map(b=><BodyMesh key={b.id} body={b}/>)}<LaunchSite/><Particles bodies={s.bodies}/><FrameGroup><Paths/><ScienceOverlays/></FrameGroup><AdaptiveLabels/><HistoryTrails/><EnvironmentLayers/><HabitableZoneGuide/><WhatIfGhosts/><CameraRig/><Picking/><Placement/><Performance/><SceneCompositor composer={composer}/>
  <EffectComposer ref={composer} enabled={false} frameBufferType={UnsignedByteType} multisampling={0}><Bloom luminanceThreshold={.9} intensity={.3} mipmapBlur/></EffectComposer></>;
 }
 const Scene=memo(function Scene(){return <Canvas id="orrery-viewport" dpr={[1,1.5]} camera={{position:[0,35,60],fov:42,near:.00001,far:1e10}}

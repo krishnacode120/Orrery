@@ -6,12 +6,12 @@ import {validateSession} from '../astronomy/session.js';
 const read=key=>{try{const value=JSON.parse(localStorage.getItem(key)||'[]');return Array.isArray(value)?value.slice(-100).filter(x=>x&&typeof x.id==='string'&&typeof x.name==='string'||x&&typeof x.id==='string'&&typeof x.label==='string'):[];}catch{return [];}};
 const persist=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{throw new Error('Local exploration storage is unavailable');}};
 export const useExplorerStore=create((set,get)=>({
- active:false,section:'nearby',selected:'hyg-0',systemId:null,pose:null,command:null,serial:0,span:30*3.085677581491367e16,baseline:null,solar:null,
+ active:false,section:'nearby',infoId:null,selected:'hyg-0',systemId:null,pose:null,command:null,serial:0,span:30*3.085677581491367e16,baseline:null,solar:null,
  favorites:read('orrery-universe-favorites'),sessions:read('orrery-universe-sessions'),history:[],index:-1,educational:true,hz:true,labels:true,compare:[],overlay:null,
  update:patch=>set(patch),
  enter(section='nearby'){const sim=useSimStore.getState();if(sim.experimentActive||sim.replayActive)throw new Error('Exit What-If or recorded replay before catalog navigation');if(!get().active){const scenario=structuredClone(sim.scenario),pose=useCameraStore.getState().live?.pose;if(pose&&useCameraStore.getState().live?.pose)scenario.view.camera=structuredClone(pose);set({baseline:{scenario,paused:sim.paused},active:true});useSimStore.setState({paused:true,catalogActive:true,revision:sim.revision+1,stepRequest:false});}set({section,serial:get().serial+1,command:{type:'overview'}});useUIStore.getState().workspace({right:true});useSimStore.getState().configureView({panel:'universe'});},
  leave(){if(!get().active)return;const baseline=get().baseline,sim=useSimStore.getState();set({active:false,baseline:null});useSimStore.setState({scenario:baseline.scenario,paused:baseline.paused,catalogActive:false,revision:sim.revision+1,stats:null,stepRequest:false});useCameraStore.getState().request('load');},
- select(id){set({selected:id});},
+ select(id){set({selected:id,infoId:useUIStore.getState().showInfoOnSelection?id:null});},
  focus(id){set({selected:id,serial:get().serial+1,command:{type:'focus',id}});get().remember();},
  overview(section){get().enter(section);get().remember();},
  openSystem(id){get().enter('system');set({systemId:id,selected:id,serial:get().serial+1,command:{type:'overview'}});get().remember();},

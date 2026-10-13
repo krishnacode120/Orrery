@@ -214,3 +214,7 @@ A repository-wide software license has not yet been selected by the owner. Publi
 ## Development status
 
 Orrery is an actively developed simulation workspace, not a flight-certified or fully relativistic simulator. Automated physics checks do not establish visual quality or certify the complete original roadmap. See VERIFICATION.md for tested behavior and unresolved limits. GitHub Actions runs frontend tests/build and backend tests on pushes and pull requests.
+
+## Selection and object information
+
+Click or tap a body to select without moving the camera. Double-click, **F**, or **Focus** explicitly frames it. Empty space, **Esc**, or **Clear Selection** deselects. Close information to keep selection; **Info** reopens it. **Settings → Display → Show information on selection** saves your preference. **Return to Free Camera** preserves the current pose. **F4** includes planetary position/picking diagnostics. Display-radius exaggeration is labelled and capped without changing physics. See the [position and selection release notes](docs/releases/2026-10-13-position-selection.md).

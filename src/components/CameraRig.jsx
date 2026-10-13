@@ -32,13 +32,13 @@ export default function CameraRig(){
   control.addEventListener('change',()=>{if(programmatic.current||!control.enabled)return;const sp=viewSpace(useSimStore.getState().scenario);c.setOrbitDesired(sp.inverse(proxy.current.position.toArray()),sp.inverse(control.target.toArray()));});
   control.addEventListener('start',()=>{c.transition=null;c.velocity=[0,0,0];});
   const pointerLock=()=>{if(!canvas.requestPointerLock){useCameraStore.setState({notice:'Pointer lock is unavailable; drag-to-look remains active.'});return;}try{const result=canvas.requestPointerLock();result?.catch?.(()=>useCameraStore.setState({notice:'Pointer lock was refused by the browser; use drag-to-look.'}));}catch{useCameraStore.setState({notice:'Pointer lock is unavailable in this browser view.'});}};
-  const cancelAutomatic=(movement=false)=>{if(c.transition||c.mode==='cinematic'||movement&&['orbit','follow','chase','rocket','satellite'].includes(c.mode)){control.enabled=false;c.cancel();useSimStore.getState().configureView({cameraMode:'free',navigation:{...useSimStore.getState().scenario.view.navigation,reference:'inertial'}});}};
+  const cancelAutomatic=(movement=false)=>{if(c.transition||c.mode==='cinematic'||movement&&['orbit','follow','chase','rocket','satellite'].includes(c.mode)){control.enabled=false;c.cancel();useSimStore.getState().configureView({cameraMode:'free',cameraTarget:null,navigation:{...useSimStore.getState().scenario.view.navigation,reference:'inertial'}});}};
   const down=e=>{
    if(blocked(e)||e.metaKey||e.ctrlKey&&!['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ControlLeft','ControlRight'].includes(e.code))return;
    if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE'].includes(e.code)){e.preventDefault();cancelAutomatic(true);}
    keys.current.add(e.code);
    if(e.code==='KeyC'&&!e.repeat&&['free','target-lock','surface'].includes(c.mode)){e.preventDefault();pointerLock();}
-   if(e.code==='Escape'){release();c.cancel();useSimStore.getState().configureView({cameraMode:'free',navigation:{...useSimStore.getState().scenario.view.navigation,reference:'inertial'}});}
+   if(e.code==='Escape')release(); // HUD owns selection/tool cancellation and mode changes.
   };
   const up=e=>keys.current.delete(e.code);
   const pointerDown=e=>{
@@ -101,7 +101,7 @@ export default function CameraRig(){
    if(command.type==='family')c.family(s.bodies.find(x=>x.id===command.id),ctx);
    if(command.type==='focus')c.focus(s.bodies.find(b=>b.id===command.id),ctx,{mode:command.mode??'orbit',direction:command.direction});
    if(command.type==='system')c.system(ctx,command.direction,{region:command.region});
-   if(command.type==='mode')c.setMode(command.mode,command.targetId??v.selected);
+   if(command.type==='mode')c.setMode(command.mode,command.mode==='free'?null:command.targetId??v.selected);
    if(command.type==='restore'){
     if(validPose(command.pose)){c.restore(command.pose);sim.configureView({scale:command.pose.scale,cameraMode:command.pose.mode,cameraTarget:command.pose.targetId,navigation:{...settings,reference:command.pose.reference??'inertial',referenceId:command.pose.referenceId??null,fov:command.pose.fov}});}
     else if(command.pose?.position&&command.pose?.target){const sp=viewSpace(s);c.position=sp.inverse(command.pose.position);c.target=sp.inverse(command.pose.target);c.orientation.copy(lookQuaternion(c.position,c.target));c.resetMotion();}
@@ -116,7 +116,7 @@ export default function CameraRig(){
   const code=keys.current,move=[Number(code.has('KeyD'))-Number(code.has('KeyA')),Number(code.has('KeyE'))-Number(code.has('KeyQ')),Number(code.has('KeyW'))-Number(code.has('KeyS'))];
   const input={move,look:[...look.current],zooming:performance.now()<(last.current.zoomUntil??0),precision:code.has('ControlLeft')||code.has('ControlRight'),boost:code.has('ShiftLeft')||code.has('ShiftRight')};look.current=[0,0];
   const pose=c.update(dt,ctx,ui.tool==='select'?input:{},settings);
-  if(c.mode!==canonical){sim.configureView({cameraMode:c.mode,...(c.mode==='free'?{navigation:{...settings,reference:'inertial'}}:{})});}
+  if(c.mode!==canonical){sim.configureView({cameraMode:c.mode,...(c.mode==='free'?{cameraTarget:null,navigation:{...settings,reference:'inertial'}}:{})});}
   // Camera-relative floating origin. Origin changes are display transforms; SI pose is never rounded.
   let unitSize=viewSpace({...s,view:{...v,renderFrame:null}},false).unit;
   if(['free','target-lock'].includes(c.mode))unitSize=Math.max(.1,Math.min(AU/4,Math.max(1,c.effectiveSpeed??c.speed)*.08));

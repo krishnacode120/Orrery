@@ -1,11 +1,12 @@
 import {ScaleControls} from './WorkspaceControls.jsx';
 import CameraPanel from './CameraPanel.jsx';
+import {useUIStore} from '../store/useUIStore.js';
 import {useState} from 'react';
 import {useSimStore} from '../store/useSimStore.js';
 import {NumberField,Select,Toggle,Readouts,fmt} from './Fields.jsx';
 import {captureScreenshot,startRecording,stopRecording,saveViewpoint,restoreViewpoint} from '../capture.js';
 export default function Settings({run}) {
- const sim=useSimStore(),s=sim.scenario,p=s.settings,v=s.view;
+ const ui=useUIStore(),sim=useSimStore(),s=sim.scenario,p=s.settings,v=s.view;
  const [tab,setTab]=useState('physics');
  const [recording,setRecording]=useState(false),[fps,setFPS]=useState('30'),[resolution,setResolution]=useState('1080');
  const edit=(k,x)=>run(()=>sim.edit(s=>s.settings[k]=x)),view=(k,x)=>sim.configureView({[k]:x});
@@ -25,7 +26,7 @@ export default function Settings({run}) {
  </div>}
  {tab==="display"&&<details open><summary>Rendering and accessibility</summary><div className="stack"><ScaleControls/><Select label="Quality" value={v.quality} options={['auto','low','medium','high','ultra']} commit={x=>view('quality',x)}/>
  <NumberField label="System body size multiplier" value={v.exaggeration} commit={x=>view('exaggeration',Math.max(1,Math.min(1e6,x)))}/><NumberField label="Exposure" value={v.exposure} commit={x=>view('exposure',Math.max(.1,Math.min(4,x)))}/>
- <div className="grid">{[['smoothMotion','Interpolate physical render poses'],['pauseVisualEffects','Pause procedural effects too'],['showMoons','Show moon systems'],['showSOI','Sphere of influence'],['autoArrival','Focus destination on SOI entry'],['transferPath','Transfer overlay'],['predictionPaths','Predicted paths'],['showAcceleration','Gravity vector'],['showBarycenter','System barycenter'],['miniMap','Navigation map'],['pip','Picture-in-picture'],['labels','Labels'],['orbits','Orbit paths'],['trails','History trails'],['markers','Orbital markers'],['vectors','Velocity vectors'],['plane','Orbital plane'],['bloom','Restrained bloom'],['highContrast','High contrast'],['reducedMotion','Reduced motion']].map(([k,label])=><Toggle key={k} label={label} value={v[k]} commit={x=>view(k,x)}/>)}</div>
+ <Toggle label="Show information on selection" value={ui.showInfoOnSelection} commit={x=>ui.workspace({showInfoOnSelection:x})}/><div className="grid">{[['smoothMotion','Interpolate physical render poses'],['pauseVisualEffects','Pause procedural effects too'],['showMoons','Show moon systems'],['showSOI','Sphere of influence'],['autoArrival','Focus destination on SOI entry'],['transferPath','Transfer overlay'],['predictionPaths','Predicted paths'],['showAcceleration','Gravity vector'],['showBarycenter','System barycenter'],['miniMap','Navigation map'],['pip','Picture-in-picture'],['labels','Labels'],['orbits','Orbit paths'],['trails','History trails'],['markers','Orbital markers'],['vectors','Velocity vectors'],['plane','Orbital plane'],['bloom','Restrained bloom'],['highContrast','High contrast'],['reducedMotion','Reduced motion']].map(([k,label])=><Toggle key={k} label={label} value={v[k]} commit={x=>view(k,x)}/>)}</div>
  <Select label="Gravity grid · visual analogy" value={v.gravityGrid??'off'} options={['off','low','medium','high']} commit={x=>view('gravityGrid',x)}/><NumberField label="Text scale" value={v.textScale} commit={x=>view('textScale',Math.max(.9,Math.min(1.5,x)))}/>
  <div className="grid">{[['mass',['kg','M⊕','M☉']],['length',['m','km','AU']],['radius',['m','km','R⊕','R☉']],['velocity',['m/s','km/s']],['time',['s','d','yr']],['angle',['deg','rad']]].map(([key,options])=><Select key={key} label={key+' units'} value={v.units[key]} options={options} commit={x=>view('units',{...v.units,[key]:x})}/>)}</div></div></details>}
  {tab==="camera"&&<details open><summary>Camera and capture</summary><div className="stack"><CameraPanel run={run}/>
